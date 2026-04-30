@@ -1,1 +1,16 @@
+L'API du projet ASIMOV permet l'accès aux données suivantes de la base de données ASIMOV :
+classes, eleves, enseignants, moyennes, option scolaires, parents, projets, recherches stage et utilisateurs
 
+Lancement de l'API : 'npm start' dans le dossier de l'API
+(Utilise MariaDB)
+
+Routes :
+/api/classes
+/api/eleves
+/api/enseignants
+/api/moyennes
+/api/options
+/api/parents
+/api/projets
+/api/referents
+/api/stages/recherches
