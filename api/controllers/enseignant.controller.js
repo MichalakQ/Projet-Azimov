@@ -7,10 +7,15 @@ export default {
      * Récupérer tous les enseignants
      */
     readAll: async (req, res) => {
-        console.log("GET /api/enseignants");
+        console.log("\n🔍 === GET /api/enseignants ===");
         try {
             // Utiliser le modèle
             const data = await Enseignant.findAll();
+            
+            console.log("✅ Récupéré: " + data.length + " enseignants");
+            if (data.length > 0) {
+                console.log("  [0] " + data[0].prenom + " " + data[0].nom);
+            }
 
             res.json({
                 success: true,
@@ -19,10 +24,11 @@ export default {
             });
 
         } catch (error) {
-            console.error('Erreur lecture enseignants:', error.message);
+            console.error('❌ Erreur lecture enseignants:', error.message);
+            console.error(error);
             res.status(500).json({
                 success: false,
-                error: 'Erreur',
+                error: 'Erreur lecture enseignants',
                 message: error.message
             });
         }
@@ -33,7 +39,7 @@ export default {
      * Récupérer un enseignant par ID
      */
     readById: async (req, res) => {
-        console.log("GET /api/enseignants/:id");
+        console.log("\n🔍 === GET /api/enseignants/:id ===");
         try {
             const id = parseInt(req.params.id);
             if (isNaN(id)) {
@@ -45,12 +51,16 @@ export default {
 
             // Utiliser le modèle
             const enseignant = await Enseignant.findById(id);
+            
             if (!enseignant) {
+                console.log("⚠️ Enseignant " + id + " non trouvé");
                 return res.status(404).json({
                     success: false,
                     error: 'Enseignant non trouvé'
                 });
             }
+            
+            console.log("✅ Enseignant trouvé: " + enseignant.prenom + " " + enseignant.nom);
 
             res.json({
                 success: true,
@@ -58,10 +68,11 @@ export default {
             });
 
         } catch (error) {
-            console.error('Erreur lecture enseignant:', error.message);
+            console.error('❌ Erreur lecture enseignant:', error.message);
+            console.error(error);
             res.status(500).json({
                 success: false,
-                error: 'Erreur',
+                error: 'Erreur lecture enseignant',
                 message: error.message
             });
         }
@@ -72,13 +83,17 @@ export default {
      * Récupérer les élèves d'un enseignant (ses références)
      */
     readEleves: async (req, res) => {
-        console.log("GET /api/enseignants/:id/eleves");
+        console.log("\n🔍 === GET /api/enseignants/:id/eleves ===");
         try {
             const id = parseInt(req.params.id);
             const annee = req.query.annee_scolaire || '2025-2026';
+            
+            console.log("📍 Enseignant ID: " + id + ", Année: " + annee);
 
             // Utiliser le modèle
             const data = await Enseignant.getEleves(id, annee);
+            
+            console.log("✅ Récupéré: " + data.length + " élèves");
 
             res.json({
                 success: true,
@@ -87,10 +102,11 @@ export default {
             });
 
         } catch (error) {
-            console.error('Erreur lecture élèves enseignant:', error.message);
+            console.error('❌ Erreur lecture élèves enseignant:', error.message);
+            console.error(error);
             res.status(500).json({
                 success: false,
-                error: 'Erreur',
+                error: 'Erreur lecture élèves enseignant',
                 message: error.message
             });
         }
