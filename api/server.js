@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import { testConnection } from './config/database.js';
 import { verifyToken, requireRole } from './middlewares/auth.js';
 
-import CtrlAuth       from './controllers/auth.controller.js';
+//import CtrlAuth       from './controllers/auth.controller.js';
 import CtrlEleve      from './controllers/eleve.controller.js';
 import CtrlEnseignant from './controllers/enseignant.controller.js';
 import CtrlClasse     from './controllers/classe.controller.js';
@@ -31,8 +31,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ========================================
 
 // Auth (publiques)
-app.post('/api/auth/login',  CtrlAuth.login);
-app.get('/api/auth/profil',  verifyToken, CtrlAuth.profil);
+//app.post('/api/auth/login',  CtrlAuth.login);
+//app.get('/api/auth/profil',  verifyToken, CtrlAuth.profil);
 
 // Élèves
 app.get('/api/eleves',                  verifyToken, CtrlEleve.readEleves);

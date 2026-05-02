@@ -1,9 +1,12 @@
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcrypt';
-import pool from '../config/database.js';
+import { Utilisateur } from '../models/Utilisateur.js';
 
 export default {
 
+    /**
+     * POST /api/auth/login
+     * Connexion utilisateur
+     */
     login: async (req, res) => {
         console.log("POST /api/auth/login");
         try {
@@ -16,74 +19,82 @@ export default {
                 });
             }
 
-            let conn;
-            try {
-                conn = await pool.getConnection();
-                const rows = await conn.query(
-                    `SELECT u.*, r.libelle AS role
-                     FROM utilisateur u
-                     JOIN role r ON r.id = u.id_role
-                     WHERE u.identifiant = ? AND u.actif = TRUE`,
-                    [identifiant]
-                );
-
-                if (rows.length === 0) {
-                    return res.status(401).json({ success: false, error: 'Identifiants incorrects' });
-                }
-
-                const user = rows[0];
-                const valid = await bcrypt.compare(mot_de_passe, user.mot_de_passe);
-                if (!valid) {
-                    return res.status(401).json({ success: false, error: 'Identifiants incorrects' });
-                }
-
-                const token = jwt.sign(
-                    { id: user.id, identifiant: user.identifiant, role: user.role },
-                    process.env.JWT_SECRET,
-                    { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
-                );
-
-                res.json({
-                    success: true,
-                    data: { token },
-                    utilisateur: {
-                        id: user.id,
-                        identifiant: user.identifiant,
-                        email: user.email,
-                        role: user.role
-                    },
-                    message: 'Connexion réussie'
+            // Utiliser le modèle pour trouver l'utilisateur
+            const user = await Utilisateur.findByIdentifiant(identifiant);
+            if (!user) {
+                return res.status(401).json({
+                    success: false,
+                    error: 'Identifiants incorrects'
                 });
-            } finally {
-                if (conn) conn.release();
             }
+
+            // Vérifier le mot de passe avec le modèle
+            const valid = await Utilisateur.verifyPassword(mot_de_passe, user.mot_de_passe);
+            if (!valid) {
+                return res.status(401).json({
+                    success: false,
+                    error: 'Identifiants incorrects'
+                });
+            }
+
+            // Générer le JWT
+            const token = jwt.sign(
+                { id: user.id, identifiant: user.identifiant, role: user.role },
+                process.env.JWT_SECRET,
+                { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
+            );
+
+            res.json({
+                success: true,
+                data: { token },
+                utilisateur: {
+                    id: user.id,
+                    identifiant: user.identifiant,
+                    email: user.email,
+                    role: user.role
+                },
+                message: 'Connexion réussie'
+            });
+
         } catch (error) {
-            res.status(500).json({ success: false, error: 'Erreur serveur', message: error.message });
+            console.error('Erreur login:', error.message);
+            res.status(500).json({
+                success: false,
+                error: 'Erreur serveur',
+                message: error.message
+            });
         }
     },
 
+    /**
+     * GET /api/auth/profil
+     * Récupérer le profil de l'utilisateur connecté
+     */
     profil: async (req, res) => {
         console.log("GET /api/auth/profil");
         try {
-            let conn;
-            try {
-                conn = await pool.getConnection();
-                const rows = await conn.query(
-                    `SELECT u.id, u.identifiant, u.email, r.libelle AS role
-                     FROM utilisateur u
-                     JOIN role r ON r.id = u.id_role
-                     WHERE u.identifiant = ?`,
-                    [req.user.identifiant]
-                );
-                if (rows.length === 0) {
-                    return res.status(404).json({ success: false, error: 'Utilisateur non trouvé' });
-                }
-                res.json({ success: true, data: rows[0] });
-            } finally {
-                if (conn) conn.release();
+            // req.user vient du middleware d'authentification
+            const user = await Utilisateur.findById(req.user.id);
+            
+            if (!user) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Utilisateur non trouvé'
+                });
             }
+
+            res.json({
+                success: true,
+                data: user
+            });
+
         } catch (error) {
-            res.status(500).json({ success: false, error: 'Erreur serveur', message: error.message });
+            console.error('Erreur profil:', error.message);
+            res.status(500).json({
+                success: false,
+                error: 'Erreur serveur',
+                message: error.message
+            });
         }
     }
 };

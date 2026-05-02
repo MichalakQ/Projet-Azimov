@@ -11,7 +11,7 @@ public class LoginFrame extends JFrame {
 
     private final JTextField txtUrl = new JTextField("http://localhost:3000");
     private final JTextField txtIdentifiant = new JTextField("proviseur");
-    private final JPasswordField txtPassword = new JPasswordField("asimov2026");
+    private final JPasswordField txtPassword = new JPasswordField("1234");
     private final JLabel lblStatus = new JLabel(" ");
     private final JButton btnLogin = new JButton("Se connecter");
 
