@@ -4,39 +4,47 @@ export class Eleve {
     /**
      * Récupérer tous les élèves avec pagination
      */
-    static async findAll(page = 1, limit = 20) {
-        let conn;
-        try {
-            conn = await pool.getConnection();
-            
-            const offset = (page - 1) * limit;
-
-            const [countResult] = await conn.query('SELECT COUNT(*) AS total FROM eleve');
-            const total = Number(countResult.total);
-
-            const data = await conn.query(`
-                SELECT e.id, e.nom, e.prenom, e.identifiant, e.date_naissance,
-                       CONCAT(n.numero, c.lettre) AS classe, n.libelle AS niveau,
-                       e.date_creation
-                FROM eleve e
-                LEFT JOIN inscription i ON i.id_eleve = e.id
-                LEFT JOIN classe c ON c.id = i.id_classe
-                LEFT JOIN niveau n ON n.id = c.id_niveau
-                ORDER BY e.nom, e.prenom
-                LIMIT ? OFFSET ?
-            `, [limit, offset]);
-
-            return {
-                data,
-                count: total,
-                page,
-                limit,
-                totalPages: Math.ceil(total / limit)
-            };
-        } finally {
-            if (conn) conn.release();
-        }
+ /**
+ * Récupérer tous les élèves avec pagination
+ */
+static async findAll(page = 1, limit = 20) {
+    let conn;
+    try {
+        conn = await pool.getConnection();
+        const offset = (page - 1) * limit;
+        
+        const data = await conn.query(`
+            SELECT 
+                e.id,
+                e.nom,
+                e.prenom,
+                e.identifiant_csv AS identifiant,
+                e.date_naissance,
+                CONCAT(n.numero, c.lettre) AS classe,
+                n.libelle AS niveau,
+                e.date_creation
+            FROM eleve e
+            LEFT JOIN inscription i ON i.id_eleve = e.id
+            LEFT JOIN classe c ON c.id = i.id_classe
+            LEFT JOIN niveau n ON n.id = c.id_niveau
+            GROUP BY e.id
+            ORDER BY e.nom, e.prenom
+            LIMIT ? OFFSET ?
+        `, [limit, offset]);
+        
+        const countResult = await conn.query('SELECT COUNT(*) as total FROM eleve');
+        const total = Number(countResult[0].total);  // ✅ CONVERTIR EN NUMBER
+        
+        return {
+            data: data,
+            count: total,
+            page: page,
+            totalPages: Math.ceil(total / limit)
+        };
+    } finally {
+        if (conn) conn.release();
     }
+}
 
     /**
      * Récupérer un élève par ID
@@ -45,7 +53,23 @@ export class Eleve {
         let conn;
         try {
             conn = await pool.getConnection();
-            const rows = await conn.query('SELECT * FROM eleve WHERE id = ?', [id]);
+            const rows = await conn.query(`
+                SELECT 
+                    e.id,
+                    e.nom,
+                    e.prenom,
+                    e.identifiant_csv AS identifiant,
+                    e.date_naissance,
+                    CONCAT(n.numero, c.lettre) AS classe,
+                    n.libelle AS niveau,
+                    e.date_creation
+                FROM eleve e
+                LEFT JOIN inscription i ON i.id_eleve = e.id
+                LEFT JOIN classe c ON c.id = i.id_classe
+                LEFT JOIN niveau n ON n.id = c.id_niveau
+                WHERE e.id = ?
+            `, [id]);
+            
             return rows.length > 0 ? rows[0] : null;
         } finally {
             if (conn) conn.release();
@@ -53,23 +77,30 @@ export class Eleve {
     }
 
     /**
-     * Rechercher des élèves
+     * Chercher des élèves par nom/prénom
      */
     static async search(query) {
         let conn;
         try {
             conn = await pool.getConnection();
+            const searchTerm = `%${query}%`;
             
             const data = await conn.query(`
-                SELECT e.id, e.nom, e.prenom, e.identifiant,
-                       CONCAT(n.numero, c.lettre) AS classe
+                SELECT 
+                    e.id,
+                    e.nom,
+                    e.prenom,
+                    e.identifiant_csv AS identifiant,
+                    e.date_naissance,
+                    CONCAT(n.numero, c.lettre) AS classe,
+                    n.libelle AS niveau
                 FROM eleve e
                 LEFT JOIN inscription i ON i.id_eleve = e.id
                 LEFT JOIN classe c ON c.id = i.id_classe
                 LEFT JOIN niveau n ON n.id = c.id_niveau
-                WHERE e.nom LIKE ? OR e.prenom LIKE ? OR e.identifiant LIKE ?
-                ORDER BY e.nom
-            `, [`%${query}%`, `%${query}%`, `%${query}%`]);
+                WHERE e.nom LIKE ? OR e.prenom LIKE ?
+                ORDER BY e.nom, e.prenom
+            `, [searchTerm, searchTerm]);
             
             return data;
         } finally {
@@ -78,70 +109,102 @@ export class Eleve {
     }
 
     /**
-     * Récupérer les statistiques complètes d'un élève
+     * Récupérer les statistiques d'un élève
      */
     static async getStatistiques(id) {
         let conn;
         try {
             conn = await pool.getConnection();
             
-            // Infos de base
-            const [eleve] = await conn.query(`
-                SELECT e.id, e.nom, e.prenom, e.identifiant, e.date_naissance,
-                       CONCAT(n.numero, c.lettre) AS classe_actuelle,
-                       ens.nom AS nom_referent, ens.prenom AS prenom_referent
+            // Élève de base
+            const rows = await conn.query(`
+                SELECT 
+                    e.id,
+                    e.nom,
+                    e.prenom,
+                    e.identifiant_csv AS identifiant,
+                    e.date_naissance,
+                    CONCAT(n.numero, c.lettre) AS classe,
+                    n.libelle AS niveau,
+                    u_ref.prenom AS prenom_referent,
+                    u_ref.nom AS nom_referent
                 FROM eleve e
                 LEFT JOIN inscription i ON i.id_eleve = e.id
                 LEFT JOIN classe c ON c.id = i.id_classe
                 LEFT JOIN niveau n ON n.id = c.id_niveau
-                LEFT JOIN referent r ON r.id_eleve = e.id AND r.annee_scolaire = i.annee_scolaire
+                LEFT JOIN referent r ON r.id_eleve = e.id
                 LEFT JOIN enseignant ens ON ens.id = r.id_enseignant
-                ORDER BY i.annee_scolaire DESC LIMIT 1
+                LEFT JOIN utilisateur u_ref ON u_ref.id = ens.id_utilisateur
+                WHERE e.id = ?
             `, [id]);
-
-            if (!eleve) return null;
-
+            
+            if (rows.length === 0) return null;
+            
+            const eleve = rows[0];
+            
             // Moyennes
             const moyennes = await conn.query(`
-                SELECT m.annee_scolaire, m.semestre, m.valeur, m.validee
-                FROM moyenne m WHERE m.id_eleve = ?
-                ORDER BY m.annee_scolaire DESC, m.semestre DESC
+                SELECT id, id_eleve, valeur, semestre, annee_scolaire, validee, date_saisie
+                FROM moyenne
+                WHERE id_eleve = ?
+                ORDER BY annee_scolaire DESC, semestre DESC
             `, [id]);
-
+            
             // Options
             const options = await conn.query(`
-                SELECT o.libelle, o.categorie, eo.annee_scolaire
-                FROM eleve_option eo JOIN option_scolaire o ON o.id = eo.id_option
+                SELECT DISTINCT o.id, o.libelle, o.categorie
+                FROM eleve_option eo
+                JOIN option_scolaire o ON o.id = eo.id_option
                 WHERE eo.id_eleve = ?
             `, [id]);
-
+            
             // Parents
             const parents = await conn.query(`
-                SELECT p.nom, p.prenom, p.email, ep.lien
-                FROM parent p JOIN eleve_parent ep ON ep.id_parent = p.id
+                SELECT DISTINCT u.nom, u.prenom, u.email, ep.lien
+                FROM eleve_parent ep
+                JOIN parent p ON p.id = ep.id_parent
+                JOIN utilisateur u ON u.id = p.id_utilisateur
                 WHERE ep.id_eleve = ?
             `, [id]);
-
-            return { ...eleve, moyennes, options, parents };
+            
+            return {
+                ...eleve,
+                moyennes: moyennes,
+                options: options,
+                parents: parents
+            };
         } finally {
             if (conn) conn.release();
         }
     }
 
     /**
-     * Créer un nouvel élève
+     * Créer un élève
      */
     static async create(data) {
-        const { nom, prenom, identifiant, date_naissance, id_utilisateur } = data;
+        const { nom, prenom, identifiant } = data;
+        
+        if (!nom || !prenom || !identifiant) {
+            throw new Error('Champs requis: nom, prenom, identifiant');
+        }
         
         let conn;
         try {
             conn = await pool.getConnection();
             
+            // Créer utilisateur
+            const userResult = await conn.query(`
+                INSERT INTO utilisateur (identifiant, mot_de_passe, nom, prenom, email, id_role, actif)
+                VALUES (?, ?, ?, ?, ?, 4, 1)
+            `, [identifiant, 'hashed_password', nom, prenom, `${identifiant}@asimov.edu`]);
+            
+            const userId = userResult.insertId;
+            
+            // Créer élève
             const result = await conn.query(`
-                INSERT INTO eleve (id_utilisateur, nom, prenom, identifiant, date_naissance, date_creation)
-                VALUES (?, ?, ?, ?, ?, NOW())
-            `, [id_utilisateur, nom.toUpperCase(), prenom, identifiant, date_naissance || null]);
+                INSERT INTO eleve (id_utilisateur, nom, prenom, identifiant_csv)
+                VALUES (?, ?, ?, ?)
+            `, [userId, nom, prenom, identifiant]);
             
             return result.insertId;
         } finally {
@@ -153,44 +216,18 @@ export class Eleve {
      * Mettre à jour un élève
      */
     static async update(id, data) {
-        const { nom, prenom, date_naissance } = data;
+        const { nom, prenom } = data;
         
         let conn;
         try {
             conn = await pool.getConnection();
             
-            await conn.query(`
-                UPDATE eleve
-                SET nom = ?, prenom = ?, date_naissance = ?
-                WHERE id = ?
-            `, [
-                nom ? nom.toUpperCase() : undefined,
-                prenom,
-                date_naissance,
-                id
-            ]);
+            await conn.query(
+                'UPDATE eleve SET nom = ?, prenom = ? WHERE id = ?',
+                [nom || undefined, prenom || undefined, id]
+            );
             
             return await this.findById(id);
-        } finally {
-            if (conn) conn.release();
-        }
-    }
-
-    /**
-     * Inscrire un élève à une classe
-     */
-    static async inscribeToClasse(idEleve, idClasse, annee) {
-        let conn;
-        try {
-            conn = await pool.getConnection();
-            
-            await conn.query(`
-                INSERT INTO inscription (id_eleve, id_classe, annee_scolaire, date_inscription)
-                VALUES (?, ?, ?, NOW())
-                ON DUPLICATE KEY UPDATE id_classe = ?
-            `, [idEleve, idClasse, annee, idClasse]);
-            
-            return true;
         } finally {
             if (conn) conn.release();
         }
@@ -203,9 +240,27 @@ export class Eleve {
         let conn;
         try {
             conn = await pool.getConnection();
+            await conn.query('DELETE FROM eleve WHERE id = ?', [id]);
+            return true;
+        } finally {
+            if (conn) conn.release();
+        }
+    }
+
+    /**
+     * Inscrire un élève à une classe
+     */
+    static async inscribeToClasse(idEleve, idClasse) {
+        let conn;
+        try {
+            conn = await pool.getConnection();
             
-            const result = await conn.query('DELETE FROM eleve WHERE id = ?', [id]);
-            return result.affectedRows > 0;
+            const result = await conn.query(`
+                INSERT INTO inscription (id_eleve, id_classe)
+                VALUES (?, ?)
+            `, [idEleve, idClasse]);
+            
+            return result.insertId;
         } finally {
             if (conn) conn.release();
         }
