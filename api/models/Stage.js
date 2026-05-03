@@ -8,15 +8,28 @@ export class Stage {
         let conn;
         try {
             conn = await pool.getConnection();
+            
             const data = await conn.query(`
-                SELECT rs.*, ent.nom AS entreprise_nom, ent.ville,
-                       ce.nom AS contact_nom, ce.email AS contact_email
+                SELECT 
+                    rs.id,
+                    rs.id_eleve,
+                    ent.nom AS entreprise_nom,
+                    ent.ville,
+                    ce.nom AS contact_nom,
+                    ce.email AS contact_email,
+                    rs.nb_lettres_envoyees,
+                    rs.nb_lettres_recues,
+                    rs.resultat_entretien,
+                    a.libelle AS annee_scolaire,
+                    rs.date_creation
                 FROM recherche_stage rs
-                JOIN entreprise ent ON ent.id = rs.id_entreprise
+                INNER JOIN entreprise ent ON ent.id = rs.id_entreprise
                 LEFT JOIN contact_entreprise ce ON ce.id = rs.id_contact
+                LEFT JOIN annee_scolaire a ON a.id = rs.id_annee_scolaire
                 WHERE rs.id_eleve = ? 
                 ORDER BY rs.date_creation DESC
             `, [idEleve]);
+            
             return data;
         } finally {
             if (conn) conn.release();
@@ -25,16 +38,35 @@ export class Stage {
 
     /**
      * Récupérer le suivi des recherches de stage pour une année
+     * Avec alerte si > 15 entreprises contactées
      */
     static async getSuivi(annee = '2025-2026') {
         let conn;
         try {
             conn = await pool.getConnection();
-            const data = await conn.query(
-                'SELECT * FROM v_eleves_recherche_stage WHERE annee_scolaire = ? ORDER BY alerte DESC, nb_entreprises_contactees DESC',
-                [annee]
-            );
-            return data;
+            
+            const data = await conn.query(`
+                SELECT 
+                    u.nom,
+                    u.prenom,
+                    COUNT(DISTINCT rs.id_entreprise) AS nb_entreprises_contactees,
+                    (COUNT(DISTINCT rs.id_entreprise) > 15) AS alerte,
+                    a.libelle AS annee_scolaire
+                FROM recherche_stage rs
+                INNER JOIN eleve e ON e.id = rs.id_eleve
+                INNER JOIN utilisateur u ON u.id = e.id_utilisateur
+                INNER JOIN annee_scolaire a ON a.id = rs.id_annee_scolaire
+                WHERE a.libelle = ?
+                GROUP BY e.id, u.nom, u.prenom, a.libelle
+                ORDER BY alerte DESC, nb_entreprises_contactees DESC
+            `, [annee]);
+            
+            // ✅ Convertir BigInt en Number et booléen
+            return data.map(row => ({
+                ...row,
+                nb_entreprises_contactees: Number(row.nb_entreprises_contactees),
+                alerte: Boolean(row.alerte)
+            }));
         } finally {
             if (conn) conn.release();
         }
@@ -44,16 +76,16 @@ export class Stage {
      * Créer une recherche de stage
      */
     static async createRecherche(data) {
-        const { idEleve, idEntreprise, annee } = data;
+        const { idEleve, idEntreprise, idAnneeScolaire } = data;
         
         let conn;
         try {
             conn = await pool.getConnection();
             
             const result = await conn.query(`
-                INSERT INTO recherche_stage (id_eleve, id_entreprise, annee_scolaire, date_creation)
+                INSERT INTO recherche_stage (id_eleve, id_entreprise, id_annee_scolaire, date_creation)
                 VALUES (?, ?, ?, NOW())
-            `, [idEleve, idEntreprise, annee]);
+            `, [idEleve, idEntreprise, idAnneeScolaire]);
             
             return result.insertId;
         } finally {
@@ -85,19 +117,32 @@ export class Stage {
     }
 
     /**
-     * Récupérer les conventions de stage
+     * Récupérer les documents/conventions de stage
      */
     static async getConventions() {
         let conn;
         try {
             conn = await pool.getConnection();
+            
             const data = await conn.query(`
-                SELECT cs.*, e.nom AS eleve_nom, e.prenom AS eleve_prenom, ent.nom AS entreprise_nom
-                FROM convention_stage cs
-                JOIN eleve e ON e.id = cs.id_eleve
-                JOIN entreprise ent ON ent.id = cs.id_entreprise
-                ORDER BY cs.date_debut DESC
+                SELECT 
+                    ds.id,
+                    u.nom AS eleve_nom,
+                    u.prenom AS eleve_prenom,
+                    ent.nom AS entreprise_nom,
+                    ds.type_document,
+                    ds.date_debut,
+                    ds.date_fin,
+                    ds.validee,
+                    a.libelle AS annee_scolaire
+                FROM document_stage ds
+                INNER JOIN eleve e ON e.id = ds.id_eleve
+                INNER JOIN utilisateur u ON u.id = e.id_utilisateur
+                INNER JOIN entreprise ent ON ent.id = ds.id_entreprise
+                LEFT JOIN annee_scolaire a ON a.id = ds.id_annee_scolaire
+                ORDER BY ds.date_debut DESC
             `);
+            
             return data;
         } finally {
             if (conn) conn.release();
@@ -105,13 +150,32 @@ export class Stage {
     }
 
     /**
-     * Récupérer une convention par ID
+     * Récupérer un document/convention par ID
      */
     static async getConventionById(id) {
         let conn;
         try {
             conn = await pool.getConnection();
-            const rows = await conn.query('SELECT * FROM convention_stage WHERE id = ?', [id]);
+            
+            const rows = await conn.query(`
+                SELECT 
+                    ds.id,
+                    ds.id_eleve,
+                    ds.id_entreprise,
+                    u.nom AS eleve_nom,
+                    u.prenom AS eleve_prenom,
+                    ent.nom AS entreprise_nom,
+                    ds.type_document,
+                    ds.date_debut,
+                    ds.date_fin,
+                    ds.validee
+                FROM document_stage ds
+                INNER JOIN eleve e ON e.id = ds.id_eleve
+                INNER JOIN utilisateur u ON u.id = e.id_utilisateur
+                INNER JOIN entreprise ent ON ent.id = ds.id_entreprise
+                WHERE ds.id = ?
+            `, [id]);
+            
             return rows.length > 0 ? rows[0] : null;
         } finally {
             if (conn) conn.release();
@@ -119,19 +183,19 @@ export class Stage {
     }
 
     /**
-     * Créer une convention de stage
+     * Créer un document/convention de stage
      */
     static async createConvention(data) {
-        const { idEleve, idEntreprise, dateDebut, dateFin, evaluationMaitreStage } = data;
+        const { idEleve, idEntreprise, typeDocument, dateDebut, dateFin } = data;
         
         let conn;
         try {
             conn = await pool.getConnection();
             
             const result = await conn.query(`
-                INSERT INTO convention_stage (id_eleve, id_entreprise, date_debut, date_fin, evaluation_maitre_stage, date_creation)
+                INSERT INTO document_stage (id_eleve, id_entreprise, type_document, date_debut, date_fin, date_creation)
                 VALUES (?, ?, ?, ?, ?, NOW())
-            `, [idEleve, idEntreprise, dateDebut, dateFin, evaluationMaitreStage || null]);
+            `, [idEleve, idEntreprise, typeDocument || 'convention', dateDebut || null, dateFin || null]);
             
             return result.insertId;
         } finally {
@@ -146,7 +210,21 @@ export class Stage {
         let conn;
         try {
             conn = await pool.getConnection();
-            const data = await conn.query('SELECT * FROM entreprise ORDER BY nom');
+            
+            const data = await conn.query(`
+                SELECT 
+                    id,
+                    nom,
+                    adresse,
+                    ville,
+                    code_postal,
+                    telephone,
+                    email,
+                    site_web
+                FROM entreprise 
+                ORDER BY nom
+            `);
+            
             return data;
         } finally {
             if (conn) conn.release();
@@ -160,7 +238,21 @@ export class Stage {
         let conn;
         try {
             conn = await pool.getConnection();
-            const rows = await conn.query('SELECT * FROM entreprise WHERE id = ?', [id]);
+            
+            const rows = await conn.query(`
+                SELECT 
+                    id,
+                    nom,
+                    adresse,
+                    ville,
+                    code_postal,
+                    telephone,
+                    email,
+                    site_web
+                FROM entreprise 
+                WHERE id = ?
+            `, [id]);
+            
             return rows.length > 0 ? rows[0] : null;
         } finally {
             if (conn) conn.release();
@@ -174,10 +266,20 @@ export class Stage {
         let conn;
         try {
             conn = await pool.getConnection();
-            const data = await conn.query(
-                'SELECT * FROM contact_entreprise WHERE id_entreprise = ? ORDER BY nom',
-                [idEntreprise]
-            );
+            
+            const data = await conn.query(`
+                SELECT 
+                    id,
+                    nom,
+                    prenom,
+                    fonction,
+                    telephone,
+                    email
+                FROM contact_entreprise 
+                WHERE id_entreprise = ? 
+                ORDER BY nom
+            `, [idEntreprise]);
+            
             return data;
         } finally {
             if (conn) conn.release();

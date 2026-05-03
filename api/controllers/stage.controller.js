@@ -7,7 +7,7 @@ export default {
      * Récupérer les recherches de stage d'un élève
      */
     readRecherches: async (req, res) => {
-        console.log("GET /api/stages/recherches/eleve/:id");
+        console.log("\n🔍 === GET /api/stages/recherches/eleve/:id ===");
         try {
             const id = parseInt(req.params.id);
             if (isNaN(id)) {
@@ -17,8 +17,12 @@ export default {
                 });
             }
 
+            console.log("📍 Élève ID: " + id);
+
             // Utiliser le modèle
             const data = await Stage.getRecherches(id);
+            
+            console.log("✅ Récupéré: " + data.length + " recherches");
 
             res.json({
                 success: true,
@@ -27,7 +31,8 @@ export default {
             });
 
         } catch (error) {
-            console.error('Erreur lecture recherches:', error.message);
+            console.error('❌ Erreur lecture recherches:', error.message);
+            console.error(error);
             res.status(500).json({
                 success: false,
                 error: 'Erreur lecture recherches',
@@ -41,12 +46,16 @@ export default {
      * Récupérer le suivi des recherches de stage
      */
     readSuivi: async (req, res) => {
-        console.log("GET /api/stages/recherches/suivi");
+        console.log("\n🔍 === GET /api/stages/recherches/suivi ===");
         try {
             const annee = req.query.annee_scolaire || '2025-2026';
+            
+            console.log("📍 Année: " + annee);
 
             // Utiliser le modèle
             const data = await Stage.getSuivi(annee);
+            
+            console.log("✅ Récupéré: " + data.length + " élèves en suivi");
 
             res.json({
                 success: true,
@@ -55,7 +64,8 @@ export default {
             });
 
         } catch (error) {
-            console.error('Erreur suivi:', error.message);
+            console.error('❌ Erreur suivi:', error.message);
+            console.error(error);
             res.status(500).json({
                 success: false,
                 error: 'Erreur suivi',
@@ -69,24 +79,28 @@ export default {
      * Créer une recherche de stage
      */
     createRecherche: async (req, res) => {
-        console.log("POST /api/stages/recherches");
+        console.log("\n🔍 === POST /api/stages/recherches ===");
         try {
-            const { id_eleve, id_entreprise, annee_scolaire } = req.body;
+            const { id_eleve, id_entreprise, id_annee_scolaire } = req.body;
 
-            if (!id_eleve || !id_entreprise || !annee_scolaire) {
+            if (!id_eleve || !id_entreprise || !id_annee_scolaire) {
                 return res.status(400).json({
                     success: false,
-                    error: 'id_eleve, id_entreprise et annee_scolaire requis'
+                    error: 'Champs requis: id_eleve, id_entreprise, id_annee_scolaire'
                 });
             }
+
+            console.log("📍 Élève: " + id_eleve + ", Entreprise: " + id_entreprise);
 
             try {
                 // Utiliser le modèle
                 const id = await Stage.createRecherche({
                     idEleve: id_eleve,
                     idEntreprise: id_entreprise,
-                    annee: annee_scolaire
+                    idAnneeScolaire: id_annee_scolaire
                 });
+
+                console.log("✅ Recherche créée: ID=" + id);
 
                 res.status(201).json({
                     success: true,
@@ -99,7 +113,8 @@ export default {
             }
 
         } catch (error) {
-            console.error('Erreur création recherche:', error.message);
+            console.error('❌ Erreur création recherche:', error.message);
+            console.error(error);
             res.status(500).json({
                 success: false,
                 error: 'Erreur création recherche',
@@ -113,10 +128,12 @@ export default {
      * Récupérer toutes les conventions de stage
      */
     readConventions: async (req, res) => {
-        console.log("GET /api/stages/conventions");
+        console.log("\n🔍 === GET /api/stages/conventions ===");
         try {
             // Utiliser le modèle
             const data = await Stage.getConventions();
+            
+            console.log("✅ Récupéré: " + data.length + " documents");
 
             res.json({
                 success: true,
@@ -125,7 +142,8 @@ export default {
             });
 
         } catch (error) {
-            console.error('Erreur conventions:', error.message);
+            console.error('❌ Erreur conventions:', error.message);
+            console.error(error);
             res.status(500).json({
                 success: false,
                 error: 'Erreur conventions',
@@ -139,10 +157,12 @@ export default {
      * Récupérer toutes les entreprises
      */
     readEntreprises: async (req, res) => {
-        console.log("GET /api/stages/entreprises");
+        console.log("\n🔍 === GET /api/stages/entreprises ===");
         try {
             // Utiliser le modèle
             const data = await Stage.getEntreprises();
+            
+            console.log("✅ Récupéré: " + data.length + " entreprises");
 
             res.json({
                 success: true,
@@ -151,7 +171,8 @@ export default {
             });
 
         } catch (error) {
-            console.error('Erreur entreprises:', error.message);
+            console.error('❌ Erreur entreprises:', error.message);
+            console.error(error);
             res.status(500).json({
                 success: false,
                 error: 'Erreur entreprises',

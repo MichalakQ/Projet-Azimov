@@ -4,47 +4,44 @@ export class Eleve {
     /**
      * Récupérer tous les élèves avec pagination
      */
- /**
- * Récupérer tous les élèves avec pagination
- */
-static async findAll(page = 1, limit = 20) {
-    let conn;
-    try {
-        conn = await pool.getConnection();
-        const offset = (page - 1) * limit;
-        
-        const data = await conn.query(`
-            SELECT 
-                e.id,
-                e.nom,
-                e.prenom,
-                e.identifiant_csv AS identifiant,
-                e.date_naissance,
-                CONCAT(n.numero, c.lettre) AS classe,
-                n.libelle AS niveau,
-                e.date_creation
-            FROM eleve e
-            LEFT JOIN inscription i ON i.id_eleve = e.id
-            LEFT JOIN classe c ON c.id = i.id_classe
-            LEFT JOIN niveau n ON n.id = c.id_niveau
-            GROUP BY e.id
-            ORDER BY e.nom, e.prenom
-            LIMIT ? OFFSET ?
-        `, [limit, offset]);
-        
-        const countResult = await conn.query('SELECT COUNT(*) as total FROM eleve');
-        const total = Number(countResult[0].total);  // ✅ CONVERTIR EN NUMBER
-        
-        return {
-            data: data,
-            count: total,
-            page: page,
-            totalPages: Math.ceil(total / limit)
-        };
-    } finally {
-        if (conn) conn.release();
+    static async findAll(page = 1, limit = 20) {
+        let conn;
+        try {
+            conn = await pool.getConnection();
+            const offset = (page - 1) * limit;
+            
+            const data = await conn.query(`
+                SELECT 
+                    e.id,
+                    e.nom,
+                    e.prenom,
+                    e.identifiant_csv AS identifiant,
+                    e.date_naissance,
+                    CONCAT(n.numero, c.lettre) AS classe,
+                    n.libelle AS niveau,
+                    e.date_creation
+                FROM eleve e
+                LEFT JOIN inscription i ON i.id_eleve = e.id
+                LEFT JOIN classe c ON c.id = i.id_classe
+                LEFT JOIN niveau n ON n.id = c.id_niveau
+                GROUP BY e.id
+                ORDER BY e.nom, e.prenom
+                LIMIT ? OFFSET ?
+            `, [limit, offset]);
+            
+            const countResult = await conn.query('SELECT COUNT(*) as total FROM eleve');
+            const total = Number(countResult[0].total);
+            
+            return {
+                data: data,
+                count: total,
+                page: page,
+                totalPages: Math.ceil(total / limit)
+            };
+        } finally {
+            if (conn) conn.release();
+        }
     }
-}
 
     /**
      * Récupérer un élève par ID
@@ -109,14 +106,15 @@ static async findAll(page = 1, limit = 20) {
     }
 
     /**
-     * Récupérer les statistiques d'un élève
+     * Récupérer les statistiques COMPLÈTES d'un élève
+     * ✅ CORRIGÉ: Inclut moyennes avec annee_scolaire, options, parents
      */
     static async getStatistiques(id) {
         let conn;
         try {
             conn = await pool.getConnection();
             
-            // Élève de base
+            // ✅ Élève de base + RÉFÉRENT (enseignant)
             const rows = await conn.query(`
                 SELECT 
                     e.id,
@@ -136,40 +134,63 @@ static async findAll(page = 1, limit = 20) {
                 LEFT JOIN enseignant ens ON ens.id = r.id_enseignant
                 LEFT JOIN utilisateur u_ref ON u_ref.id = ens.id_utilisateur
                 WHERE e.id = ?
+                LIMIT 1
             `, [id]);
             
             if (rows.length === 0) return null;
             
             const eleve = rows[0];
             
-            // Moyennes
+            // ✅ MOYENNES avec annee_scolaire
             const moyennes = await conn.query(`
-                SELECT id, id_eleve, valeur, semestre, annee_scolaire, validee, date_saisie
-                FROM moyenne
-                WHERE id_eleve = ?
-                ORDER BY annee_scolaire DESC, semestre DESC
+                SELECT 
+                    m.id,
+                    m.id_eleve,
+                    m.valeur,
+                    m.semestre,
+                    a.libelle AS annee_scolaire,
+                    m.validee,
+                    m.date_saisie
+                FROM moyenne m
+                LEFT JOIN annee_scolaire a ON a.id = m.id_annee_scolaire
+                WHERE m.id_eleve = ?
+                ORDER BY a.libelle DESC, m.semestre DESC
             `, [id]);
             
-            // Options
+            // ✅ OPTIONS SCOLAIRES
             const options = await conn.query(`
-                SELECT DISTINCT o.id, o.libelle, o.categorie
+                SELECT DISTINCT 
+                    o.id,
+                    o.libelle,
+                    o.categorie
                 FROM eleve_option eo
-                JOIN option_scolaire o ON o.id = eo.id_option
+                INNER JOIN option_scolaire o ON o.id = eo.id_option
                 WHERE eo.id_eleve = ?
+                ORDER BY o.categorie, o.libelle
             `, [id]);
             
-            // Parents
+            // ✅ PARENTS
             const parents = await conn.query(`
-                SELECT DISTINCT u.nom, u.prenom, u.email, ep.lien
+                SELECT DISTINCT 
+                    u.nom,
+                    u.prenom,
+                    u.email,
+                    u.telephone,
+                    ep.lien
                 FROM eleve_parent ep
-                JOIN parent p ON p.id = ep.id_parent
-                JOIN utilisateur u ON u.id = p.id_utilisateur
+                INNER JOIN parent p ON p.id = ep.id_parent
+                INNER JOIN utilisateur u ON u.id = p.id_utilisateur
                 WHERE ep.id_eleve = ?
+                ORDER BY ep.lien
             `, [id]);
             
+            // ✅ RETOURNER TOUT AVEC CONVERTION BigInt → Number
             return {
                 ...eleve,
-                moyennes: moyennes,
+                moyennes: moyennes.map(m => ({
+                    ...m,
+                    valeur: Number(m.valeur)
+                })),
                 options: options,
                 parents: parents
             };

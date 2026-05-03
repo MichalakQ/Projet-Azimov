@@ -2,6 +2,10 @@ package com.asimut.model;
 
 import com.google.gson.annotations.SerializedName;
 
+/**
+ * Modèle Eleve - Complet avec toutes les statistiques
+ * ✅ CORRIGÉ: Tous les getters + setters + @SerializedName
+ */
 public class Eleve {
     private int id;
     private String nom;
@@ -78,8 +82,71 @@ public class Eleve {
         return parents;
     }
 
+    // ============================================================
+    // SETTERS
+    // ============================================================
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public void setNom(String nom) {
+        this.nom = nom;
+    }
+
+    public void setPrenom(String prenom) {
+        this.prenom = prenom;
+    }
+
+    public void setIdentifiant(String identifiant) {
+        this.identifiant = identifiant;
+    }
+
+    public void setDateNaissance(String dateNaissance) {
+        this.dateNaissance = dateNaissance;
+    }
+
+    public void setClasse(String classe) {
+        this.classe = classe;
+    }
+
+    public void setNiveau(String niveau) {
+        this.niveau = niveau;
+    }
+
+    public void setNomReferent(String nomReferent) {
+        this.nomReferent = nomReferent;
+    }
+
+    public void setPrenomReferent(String prenomReferent) {
+        this.prenomReferent = prenomReferent;
+    }
+
+    public void setMoyennes(Moyenne[] moyennes) {
+        this.moyennes = moyennes;
+    }
+
+    public void setOptions(OptionScolaire[] options) {
+        this.options = options;
+    }
+
+    public void setParents(Parent[] parents) {
+        this.parents = parents;
+    }
+
+    // ============================================================
+    // MÉTHODES UTILES
+    // ============================================================
+
     @Override
     public String toString() {
         return nom + " " + prenom;
+    }
+
+    /**
+     * Vérifier que l'objet n'est pas null et a au moins un id
+     */
+    public boolean isValid() {
+        return this != null && id > 0 && nom != null && prenom != null;
     }
 }

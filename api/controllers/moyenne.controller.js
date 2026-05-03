@@ -7,7 +7,7 @@ export default {
      * Récupérer les moyennes d'un élève
      */
     readByEleve: async (req, res) => {
-        console.log("GET /api/moyennes/eleve/:id");
+        console.log("\n🔍 === GET /api/moyennes/eleve/:id ===");
         try {
             const id = parseInt(req.params.id);
             if (isNaN(id)) {
@@ -17,8 +17,12 @@ export default {
                 });
             }
 
+            console.log("📍 Élève ID: " + id);
+
             // Utiliser le modèle
             const data = await Moyenne.findByEleve(id);
+            
+            console.log("✅ Récupéré: " + data.length + " moyennes");
 
             res.json({
                 success: true,
@@ -27,7 +31,8 @@ export default {
             });
 
         } catch (error) {
-            console.error('Erreur lecture moyennes:', error.message);
+            console.error('❌ Erreur lecture moyennes:', error.message);
+            console.error(error);
             res.status(500).json({
                 success: false,
                 error: 'Erreur lecture moyennes',
@@ -41,12 +46,16 @@ export default {
      * Récupérer les moyennes par niveau
      */
     readByNiveau: async (req, res) => {
-        console.log("GET /api/moyennes/niveaux");
+        console.log("\n🔍 === GET /api/moyennes/niveaux ===");
         try {
             const annee = req.query.annee_scolaire || '2025-2026';
+            
+            console.log("📍 Année: " + annee);
 
             // Utiliser le modèle
             const data = await Moyenne.findByNiveau(annee);
+            
+            console.log("✅ Récupéré: " + data.length + " lignes");
 
             res.json({
                 success: true,
@@ -55,7 +64,8 @@ export default {
             });
 
         } catch (error) {
-            console.error('Erreur moyennes par niveau:', error.message);
+            console.error('❌ Erreur moyennes par niveau:', error.message);
+            console.error(error);
             res.status(500).json({
                 success: false,
                 error: 'Erreur moyennes par niveau',
@@ -69,10 +79,12 @@ export default {
      * Récupérer les moyennes en attente de validation
      */
     readEnAttente: async (req, res) => {
-        console.log("GET /api/moyennes/en-attente");
+        console.log("\n🔍 === GET /api/moyennes/en-attente ===");
         try {
             // Utiliser le modèle
             const data = await Moyenne.findEnAttente();
+            
+            console.log("✅ Récupéré: " + data.length + " moyennes en attente");
 
             res.json({
                 success: true,
@@ -81,7 +93,8 @@ export default {
             });
 
         } catch (error) {
-            console.error('Erreur moyennes en attente:', error.message);
+            console.error('❌ Erreur moyennes en attente:', error.message);
+            console.error(error);
             res.status(500).json({
                 success: false,
                 error: 'Erreur moyennes en attente',
@@ -95,28 +108,32 @@ export default {
      * Créer une nouvelle moyenne
      */
     createMoyenne: async (req, res) => {
-        console.log("POST /api/moyennes : createMoyenne");
+        console.log("\n🔍 === POST /api/moyennes ===");
         try {
-            const { id_eleve, annee_scolaire, semestre, valeur } = req.body;
+            const { id_eleve, id_annee_scolaire, semestre, valeur } = req.body;
 
-            if (!id_eleve || !annee_scolaire || !semestre || valeur === undefined) {
+            if (!id_eleve || !id_annee_scolaire || !semestre || valeur === undefined) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Champs requis : id_eleve, annee_scolaire, semestre, valeur'
+                    error: 'Champs requis: id_eleve, id_annee_scolaire, semestre, valeur'
                 });
             }
+
+            console.log("📍 Élève: " + id_eleve + ", Valeur: " + valeur);
 
             try {
                 // Utiliser le modèle
                 const id = await Moyenne.create({
                     id_eleve,
-                    annee_scolaire,
+                    id_annee_scolaire,
                     semestre,
                     valeur,
-                    id_saisie_par: req.user.id
+                    id_saisie_par: req.user ? req.user.id : 1
                 });
 
                 const created = await Moyenne.findById(id);
+                
+                console.log("✅ Moyenne créée: ID=" + id);
 
                 res.status(201).json({
                     success: true,
@@ -135,7 +152,8 @@ export default {
             }
 
         } catch (error) {
-            console.error('Erreur saisie:', error.message);
+            console.error('❌ Erreur saisie:', error.message);
+            console.error(error);
             res.status(500).json({
                 success: false,
                 error: 'Erreur saisie',
@@ -149,7 +167,7 @@ export default {
      * Valider une moyenne
      */
     validerMoyenne: async (req, res) => {
-        console.log("PUT /api/moyennes/:id/valider");
+        console.log("\n🔍 === PUT /api/moyennes/:id/valider ===");
         try {
             const id = parseInt(req.params.id);
             if (isNaN(id)) {
@@ -159,9 +177,13 @@ export default {
                 });
             }
 
+            console.log("📍 Moyenne ID: " + id);
+
             try {
                 // Utiliser le modèle
-                const updated = await Moyenne.valider(id, req.user.id);
+                const updated = await Moyenne.valider(id, req.user ? req.user.id : 1);
+                
+                console.log("✅ Moyenne validée");
 
                 res.json({
                     success: true,
@@ -180,7 +202,8 @@ export default {
             }
 
         } catch (error) {
-            console.error('Erreur validation:', error.message);
+            console.error('❌ Erreur validation:', error.message);
+            console.error(error);
             res.status(500).json({
                 success: false,
                 error: 'Erreur validation',
@@ -194,7 +217,7 @@ export default {
      * Corriger une moyenne
      */
     corrigerMoyenne: async (req, res) => {
-        console.log("PUT /api/moyennes/:id/corriger");
+        console.log("\n🔍 === PUT /api/moyennes/:id/corriger ===");
         try {
             const id = parseInt(req.params.id);
             const { valeur } = req.body;
@@ -213,9 +236,13 @@ export default {
                 });
             }
 
+            console.log("📍 Moyenne ID: " + id + ", Nouvelle valeur: " + valeur);
+
             try {
                 // Utiliser le modèle
                 const updated = await Moyenne.corriger(id, valeur);
+                
+                console.log("✅ Moyenne corrigée");
 
                 res.json({
                     success: true,
@@ -228,7 +255,8 @@ export default {
             }
 
         } catch (error) {
-            console.error('Erreur correction:', error.message);
+            console.error('❌ Erreur correction:', error.message);
+            console.error(error);
             res.status(500).json({
                 success: false,
                 error: 'Erreur correction',
