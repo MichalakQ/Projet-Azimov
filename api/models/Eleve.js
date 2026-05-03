@@ -265,8 +265,9 @@ export class Eleve {
             
             // Mettre à jour inscription si classe changée
             if (classe) {
+                // ✅ CORRIGÉ: Joindre avec niveau car 'numero' est dans niveau, pas dans classe !
                 const classeId = await conn.query(
-                    'SELECT id FROM classe WHERE CONCAT(numero, lettre) = ?',
+                    'SELECT c.id FROM classe c INNER JOIN niveau n ON n.id = c.id_niveau WHERE CONCAT(n.numero, c.lettre) = ?',
                     [classe]
                 );
                 

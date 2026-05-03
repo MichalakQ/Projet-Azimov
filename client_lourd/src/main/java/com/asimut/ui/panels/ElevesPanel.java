@@ -5,9 +5,12 @@ import com.asimut.service.ApiService;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+
 
 public class ElevesPanel extends JPanel implements Refreshable {
 
@@ -98,9 +101,20 @@ public class ElevesPanel extends JPanel implements Refreshable {
         detailTitle.setFont(new Font("SansSerif", Font.BOLD, 14));
         headerDetail.add(detailTitle, BorderLayout.WEST);
 
+        // ✅ NOUVEAU: Boutons Éditer + Supprimer
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        btnPanel.setOpaque(false);
+
         JButton btnEdit = new JButton("✎ Éditer");
         btnEdit.addActionListener(e -> editEleve());
-        headerDetail.add(btnEdit, BorderLayout.EAST);
+        btnPanel.add(btnEdit);
+
+        JButton btnDelete = new JButton("🗑️ Supprimer");
+        btnDelete.setForeground(new Color(220, 53, 69));  // Rouge
+        btnDelete.addActionListener(e -> deleteEleveConfirm());
+        btnPanel.add(btnDelete);
+
+        headerDetail.add(btnPanel, BorderLayout.EAST);
 
         detailPanel.add(headerDetail, BorderLayout.NORTH);
 
@@ -165,7 +179,8 @@ public class ElevesPanel extends JPanel implements Refreshable {
                     sb.append("═══ ").append(e.getNom()).append(" ").append(e.getPrenom()).append(" ═══\n\n");
                     sb.append("Identifiant : ").append(e.getIdentifiant()).append("\n");
                     sb.append("Classe : ").append(e.getClasse() != null ? e.getClasse() : "—").append("\n");
-                    sb.append("Naissance : ").append(e.getDateNaissance() != null ? e.getDateNaissance() : "—").append("\n");
+                    // ✅ CORRIGÉ: Utiliser formatDate() pour afficher la date correctement
+                    sb.append("Naissance : ").append(formatDate(e.getDateNaissance())).append("\n");
                     sb.append("Référent : ").append(e.getNomReferent() != null ? e.getPrenomReferent() + " " + e.getNomReferent() : "—").append("\n");
 
                     if (e.getMoyennes() != null && e.getMoyennes().length > 0) {
@@ -599,8 +614,9 @@ public class ElevesPanel extends JPanel implements Refreshable {
                     // Créer le formulaire d'édition
                     JTextField fNom = new JTextField(eleve.getNom(), 20);
                     JTextField fPrenom = new JTextField(eleve.getPrenom(), 20);
+                    // ✅ CORRIGÉ: Stocker la date en ISO (format API)
                     JTextField fDateNaissance = new JTextField(eleve.getDateNaissance() != null ? eleve.getDateNaissance() : "", 20);
-                    JTextField fTelephone = new JTextField("", 20);
+                    JTextField fTelephone = new JTextField(eleve.getTelephone() != null ? eleve.getTelephone() : "", 20);
 
                     // Combo classe
                     JComboBox<String> cbClasse = new JComboBox<>();
@@ -620,20 +636,22 @@ public class ElevesPanel extends JPanel implements Refreshable {
                     }
 
                     // Panel du formulaire
-                    JPanel form = new JPanel(new GridLayout(4, 2, 8, 8));
+                    JPanel form = new JPanel(new GridLayout(5, 2, 8, 8));
                     form.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
                     form.add(new JLabel("Nom :"));
                     form.add(fNom);
                     form.add(new JLabel("Prénom :"));
                     form.add(fPrenom);
-                    form.add(new JLabel("Date naissance :"));
+                    form.add(new JLabel("Date naissance (YYYY-MM-DD) :"));
                     form.add(fDateNaissance);
+                    form.add(new JLabel("Téléphone :"));
+                    form.add(fTelephone);
                     form.add(new JLabel("Classe :"));
                     form.add(cbClasse);
 
                     JScrollPane scroll = new JScrollPane(form);
-                    scroll.setPreferredSize(new Dimension(400, 200));
+                    scroll.setPreferredSize(new Dimension(400, 250));
 
                     int result = JOptionPane.showConfirmDialog(ElevesPanel.this, scroll, "Éditer élève", JOptionPane.OK_CANCEL_OPTION);
 
@@ -641,6 +659,7 @@ public class ElevesPanel extends JPanel implements Refreshable {
                         String nom = fNom.getText().trim().toUpperCase();
                         String prenom = fPrenom.getText().trim();
                         String dateNaissance = fDateNaissance.getText().trim();
+                        String telephone = fTelephone.getText().trim();
 
                         if (nom.isEmpty() || prenom.isEmpty()) {
                             JOptionPane.showMessageDialog(ElevesPanel.this, "❌ Nom et prénom requis", "Validation", JOptionPane.ERROR_MESSAGE);
@@ -658,6 +677,7 @@ public class ElevesPanel extends JPanel implements Refreshable {
                         summary.append("Nom : ").append(nom).append("\n");
                         summary.append("Prénom : ").append(prenom).append("\n");
                         if (!dateNaissance.isEmpty()) summary.append("Naissance : ").append(dateNaissance).append("\n");
+                        if (!telephone.isEmpty()) summary.append("Téléphone : ").append(telephone).append("\n");
                         String classe = (String) cbClasse.getSelectedItem();
                         if (!classe.equals("(Aucune)")) summary.append("Classe : ").append(classe).append("\n");
                         summary.append("\nContinuer ?");
@@ -669,12 +689,37 @@ public class ElevesPanel extends JPanel implements Refreshable {
                             SwingWorker<Boolean, Void> updateWorker = new SwingWorker<>() {
                                 @Override
                                 protected Boolean doInBackground() throws Exception {
-                                    System.out.println("\n✏️ === MODIFICATION ÉLÈVE ===");
+                                    System.out.println("\n" + "=".repeat(50));
+                                    System.out.println("✏️ === MODIFICATION ÉLÈVE ===");
+                                    System.out.println("=".repeat(50));
                                     System.out.println("📍 ID : " + currentEleveId);
                                     System.out.println("📍 Nom : " + nom);
                                     System.out.println("📍 Prénom : " + prenom);
-                                    // TODO: Implémenter updateEleve() dans ApiService si besoin
-                                    return true;  // Pour l'instant, juste confirmer
+                                    if (!dateNaissance.isEmpty()) System.out.println("📍 Naissance : " + dateNaissance);
+                                    if (!telephone.isEmpty()) System.out.println("📍 Téléphone : " + telephone);
+                                    // ✅ Déclarer classe UNE SEULE FOIS
+                                    String classe = (String) cbClasse.getSelectedItem();
+                                    if (!classe.equals("(Aucune)")) System.out.println("📍 Classe : " + classe);
+                                    System.out.println("=".repeat(50));
+
+                                    // ✅ CORRIGÉ: Construire Map et appeler updateEleve()
+                                    Map<String, Object> data = new HashMap<>();
+                                    data.put("nom", nom);
+                                    data.put("prenom", prenom);
+                                    if (!dateNaissance.isEmpty()) data.put("date_naissance", dateNaissance);
+                                    if (!telephone.isEmpty()) data.put("telephone", telephone);
+                                    if (!classe.equals("(Aucune)")) data.put("classe", classe);
+
+                                    boolean ok = ApiService.getInstance().updateEleve(currentEleveId, data);
+
+                                    if (ok) {
+                                        System.out.println("✅ Élève modifié avec succès !");
+                                    } else {
+                                        System.out.println("❌ Erreur lors de la modification");
+                                    }
+                                    System.out.println("=".repeat(50) + "\n");
+
+                                    return ok;
                                 }
 
                                 @Override
@@ -684,6 +729,8 @@ public class ElevesPanel extends JPanel implements Refreshable {
                                         if (ok) {
                                             JOptionPane.showMessageDialog(ElevesPanel.this, "✅ Élève modifié !\n\n" + nom + " " + prenom, "Succès", JOptionPane.INFORMATION_MESSAGE);
                                             refresh();
+                                        } else {
+                                            JOptionPane.showMessageDialog(ElevesPanel.this, "❌ Erreur lors de la modification", "Erreur", JOptionPane.ERROR_MESSAGE);
                                         }
                                     } catch (Exception ex) {
                                         JOptionPane.showMessageDialog(ElevesPanel.this, "❌ Erreur : " + ex.getMessage(), "Erreur", JOptionPane.ERROR_MESSAGE);
@@ -701,6 +748,127 @@ public class ElevesPanel extends JPanel implements Refreshable {
         worker.execute();
     }
 
+    /**
+     * ✅ NOUVEAU: Demander confirmation et supprimer un élève
+     */
+    private void deleteEleveConfirm() {
+        if (currentEleveId < 0) {
+            JOptionPane.showMessageDialog(this, "❌ Sélectionnez un élève d'abord", "Erreur", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // Récupérer les infos de l'élève pour affichage
+        SwingWorker<Eleve, Void> worker = new SwingWorker<>() {
+            @Override
+            protected Eleve doInBackground() throws Exception {
+                return ApiService.getInstance().getEleveStatistiques(currentEleveId);
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    Eleve eleve = get();
+                    if (eleve == null) {
+                        JOptionPane.showMessageDialog(ElevesPanel.this, "❌ Élève non trouvé", "Erreur", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+
+                    // CONFIRMATION DIALOG avec détails
+                    String message = "⚠️ ATTENTION !\n\n" +
+                            "Voulez-vous vraiment supprimer cet élève ?\n\n" +
+                            "Nom : " + eleve.getNom() + " " + eleve.getPrenom() + "\n" +
+                            "Identifiant : " + eleve.getIdentifiant() + "\n\n" +
+                            "⚠️ Cette action est IRRÉVERSIBLE !";
+
+                    int confirm = JOptionPane.showConfirmDialog(
+                            ElevesPanel.this,
+                            message,
+                            "CONFIRMER LA SUPPRESSION",
+                            JOptionPane.YES_NO_OPTION,
+                            JOptionPane.WARNING_MESSAGE
+                    );
+
+                    if (confirm == JOptionPane.YES_OPTION) {
+                        // Procéder à la suppression
+                        deleteEleveExecute(eleve);
+                    }
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(ElevesPanel.this, "❌ Erreur : " + ex.getMessage(), "Erreur", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        };
+        worker.execute();
+    }
+
+    /**
+     * ✅ NOUVEAU: Exécuter la suppression de l'élève
+     */
+    private void deleteEleveExecute(Eleve eleve) {
+        SwingWorker<Boolean, Void> deleteWorker = new SwingWorker<>() {
+            @Override
+            protected Boolean doInBackground() throws Exception {
+                System.out.println("\n" + "=".repeat(50));
+                System.out.println("🗑️ === SUPPRESSION ÉLÈVE ===");
+                System.out.println("=".repeat(50));
+                System.out.println("📍 ID : " + currentEleveId);
+                System.out.println("📍 Nom : " + eleve.getNom());
+                System.out.println("📍 Prénom : " + eleve.getPrenom());
+                System.out.println("📍 Identifiant : " + eleve.getIdentifiant());
+                System.out.println("=".repeat(50));
+                System.out.println("🔄 Envoi de la suppression...");
+
+                // ✅ Appeler deleteEleve() d'ApiService
+                boolean ok = ApiService.getInstance().deleteEleve(currentEleveId);
+
+                if (ok) {
+                    System.out.println("✅ Élève supprimé avec succès !");
+                } else {
+                    System.out.println("❌ Erreur lors de la suppression");
+                }
+                System.out.println("=".repeat(50) + "\n");
+
+                return ok;
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    boolean ok = get();
+                    if (ok) {
+                        JOptionPane.showMessageDialog(
+                                ElevesPanel.this,
+                                "✅ Élève supprimé avec succès !\n\n" + eleve.getNom() + " " + eleve.getPrenom(),
+                                "Succès",
+                                JOptionPane.INFORMATION_MESSAGE
+                        );
+                        // Rafraîchir la liste
+                        currentEleveId = -1;
+                        txtDetail.setText("Sélectionnez un élève dans la liste.");
+                        refresh();
+                    } else {
+                        JOptionPane.showMessageDialog(
+                                ElevesPanel.this,
+                                "❌ Erreur : impossible de supprimer l'élève",
+                                "Erreur",
+                                JOptionPane.ERROR_MESSAGE
+                        );
+                    }
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(
+                            ElevesPanel.this,
+                            "❌ Erreur : " + ex.getMessage(),
+                            "Erreur",
+                            JOptionPane.ERROR_MESSAGE
+                    );
+                }
+            }
+        };
+        deleteWorker.execute();
+    }
+
+    /**
+     * ✅ IMPLÉMENTATION DE L'INTERFACE Refreshable
+     */
     @Override
     public void refresh() {
         SwingWorker<Eleve[], Void> worker = new SwingWorker<>() {
@@ -710,9 +878,31 @@ public class ElevesPanel extends JPanel implements Refreshable {
             }
             @Override
             protected void done() {
-                try { fillTable(get()); } catch (Exception ignored) {}
+                try {
+                    fillTable(get());
+                } catch (Exception ignored) {}
             }
         };
         worker.execute();
+    }
+
+    /**
+     * ✅ Formatte une date ISO 8601 en format lisible français
+     * Format d'entrée:  2005-11-19T23:00:00.000Z
+     * Format de sortie: 19/11/2005
+     */
+    private String formatDate(String dateIso) {
+        if (dateIso == null || dateIso.isEmpty()) {
+            return "—";
+        }
+        try {
+            Instant instant = Instant.parse(dateIso);
+            LocalDate date = instant.atZone(ZoneId.of("UTC")).toLocalDate();
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+            return date.format(formatter);
+        } catch (Exception e) {
+            System.err.println("⚠️ Erreur formatage date: " + e.getMessage());
+            return dateIso; // Retourner la valeur originale si erreur
+        }
     }
 }
