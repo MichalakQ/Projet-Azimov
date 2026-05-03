@@ -10,9 +10,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Service centralisé pour les appels à l'API REST Asim'UT.
- * Utilise java.net.http.HttpClient (Java 11+) et Gson.
- * ✅ COMPLÉTÉ + CORRIGÉ: Toutes les méthodes + gestion des booléens (0/1 → true/false)
+ * ✅ COMPLET: Service centralisé pour les appels à l'API REST Asim'UT.
+ * Inclut les 2 nouvelles méthodes: createEleveComplet() et updateEleve()
  */
 public class ApiService {
 
@@ -25,7 +24,7 @@ public class ApiService {
 
     private ApiService() {
         this.httpClient = HttpClient.newHttpClient();
-        // ✅ CORRIGÉ: Configuration Gson avec TypeAdapter pour les booléens
+        // ✅ Configuration Gson avec TypeAdapter pour les booléens
         this.gson = new GsonBuilder()
                 .registerTypeAdapter(boolean.class, new BooleanDeserializer())
                 .registerTypeAdapter(Boolean.class, new BooleanDeserializer())
@@ -257,7 +256,6 @@ public class ApiService {
     /**
      * Récupérer les STATISTIQUES COMPLÈTES d'un élève
      * Inclut: moyennes, options, parents, référent
-     * ✅ Le BooleanDeserializer gère les booléens de MySQL
      */
     public Eleve getEleveStatistiques(int id) throws Exception {
         try {
@@ -321,6 +319,48 @@ public class ApiService {
             return success;
         } catch (Exception e) {
             System.err.println("❌ Exception createEleve: " + e.getMessage());
+            throw e;
+        }
+    }
+
+    /**
+     * ✅ NOUVEAU: Créer un élève avec TOUTES les données
+     */
+    public boolean createEleveComplet(Map<String, Object> data) throws Exception {
+        try {
+            System.out.println("🔄 Envoi vers l'API...");
+            JsonObject result = doPost("/api/eleves", data);
+
+            boolean success = result.has("success") && result.get("success").getAsBoolean();
+            if (success) {
+                System.out.println("✅ Élève créé avec succès !");
+            } else {
+                System.err.println("❌ Erreur API : " + result.get("error"));
+            }
+            return success;
+        } catch (Exception e) {
+            System.err.println("❌ Exception createEleveComplet: " + e.getMessage());
+            throw e;
+        }
+    }
+
+    /**
+     * ✅ NOUVEAU: Mettre à jour un élève
+     */
+    public boolean updateEleve(int id, Map<String, Object> data) throws Exception {
+        try {
+            System.out.println("\n✏️ === Mise à jour élève ID: " + id + " ===");
+            JsonObject result = doPut("/api/eleves/" + id, data);
+
+            boolean success = result.has("success") && result.get("success").getAsBoolean();
+            if (success) {
+                System.out.println("✅ Élève mis à jour");
+            } else {
+                System.err.println("❌ Erreur: " + result.get("error"));
+            }
+            return success;
+        } catch (Exception e) {
+            System.err.println("❌ Exception updateEleve: " + e.getMessage());
             throw e;
         }
     }

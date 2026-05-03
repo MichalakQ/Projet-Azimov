@@ -3,8 +3,7 @@ package com.asimut.model;
 import com.google.gson.annotations.SerializedName;
 
 /**
- * Modèle Eleve - Complet avec toutes les statistiques
- * ✅ CORRIGÉ: Tous les getters + setters + @SerializedName
+ * ✅ CORRIGÉ: Ajout des annotations @SerializedName + getters/setters email/telephone
  */
 public class Eleve {
     private int id;
@@ -14,6 +13,10 @@ public class Eleve {
 
     @SerializedName("date_naissance")
     private String dateNaissance;
+
+    // ✅ AJOUTÉS: Annotations manquantes
+    private String email;
+    private String telephone;
 
     private String classe;
     private String niveau;
@@ -52,6 +55,14 @@ public class Eleve {
 
     public String getDateNaissance() {
         return dateNaissance;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public String getTelephone() {
+        return telephone;
     }
 
     public String getClasse() {
@@ -106,6 +117,14 @@ public class Eleve {
         this.dateNaissance = dateNaissance;
     }
 
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public void setTelephone(String telephone) {
+        this.telephone = telephone;
+    }
+
     public void setClasse(String classe) {
         this.classe = classe;
     }
@@ -148,5 +167,9 @@ public class Eleve {
      */
     public boolean isValid() {
         return this != null && id > 0 && nom != null && prenom != null;
+    }
+
+    public String getFullName() {
+        return (prenom != null ? prenom + " " : "") + (nom != null ? nom : "");
     }
 }

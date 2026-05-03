@@ -5,6 +5,8 @@ import classeController from '../controllers/classe.controller.js';
 const router = express.Router();
 
 /**
+ * ✅ CORRIGÉ: Routes spécifiques AVANT les routes génériques
+ * 
  * GET /api/classes/niveaux
  * Récupérer tous les niveaux (6ème, 5ème, etc)
  * IMPORTANT: Cette route doit être AVANT /:id sinon sera interceptée
@@ -18,22 +20,16 @@ router.get('/niveaux', asyncHandler(classeController.readNiveaux));
 router.get('/', asyncHandler(classeController.readAll));
 
 /**
+ * GET /api/classes/:id/eleves
+ * Récupérer les élèves d'une classe
+ * IMPORTANT: Cette route doit être AVANT /:id sinon sera interceptée
+ */
+router.get('/:id/eleves', asyncHandler(classeController.readEleves));
+
+/**
  * GET /api/classes/:id
  * Récupérer une classe par ID
  */
-router.get('/:id', asyncHandler(async (req, res) => {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-        return res.status(400).json({ success: false, error: 'ID invalide' });
-    }
-    // Récupérer les élèves de la classe
-    await classeController.readEleves(req, res);
-}));
-
-/**
- * GET /api/classes/:id/eleves
- * Récupérer les élèves d'une classe
- */
-router.get('/:id/eleves', asyncHandler(classeController.readEleves));
+router.get('/:id', asyncHandler(classeController.readById));
 
 export default router;

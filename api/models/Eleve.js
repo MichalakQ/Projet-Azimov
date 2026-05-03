@@ -2,6 +2,7 @@ import pool from '../config/database.js';
 
 export class Eleve {
     /**
+     * ✅ CORRIGÉ: Joindre avec utilisateur pour récupérer nom/prenom
      * Récupérer tous les élèves avec pagination
      */
     static async findAll(page = 1, limit = 20) {
@@ -10,22 +11,26 @@ export class Eleve {
             conn = await pool.getConnection();
             const offset = (page - 1) * limit;
             
+            // ✅ CORRIGÉ: Joindre avec utilisateur
             const data = await conn.query(`
                 SELECT 
                     e.id,
-                    e.nom,
-                    e.prenom,
+                    u.nom,                      -- ✅ De utilisateur
+                    u.prenom,                   -- ✅ De utilisateur
                     e.identifiant_csv AS identifiant,
                     e.date_naissance,
+                    u.email,                    -- ✅ AJOUTÉ
+                    u.telephone,                -- ✅ AJOUTÉ
                     CONCAT(n.numero, c.lettre) AS classe,
                     n.libelle AS niveau,
                     e.date_creation
                 FROM eleve e
+                INNER JOIN utilisateur u ON u.id = e.id_utilisateur  -- ✅ AJOUTER JOIN
                 LEFT JOIN inscription i ON i.id_eleve = e.id
                 LEFT JOIN classe c ON c.id = i.id_classe
                 LEFT JOIN niveau n ON n.id = c.id_niveau
-                GROUP BY e.id
-                ORDER BY e.nom, e.prenom
+                GROUP BY e.id, u.id
+                ORDER BY u.nom, u.prenom
                 LIMIT ? OFFSET ?
             `, [limit, offset]);
             
@@ -44,23 +49,29 @@ export class Eleve {
     }
 
     /**
+     * ✅ CORRIGÉ: Joindre avec utilisateur pour récupérer nom/prenom
      * Récupérer un élève par ID
      */
     static async findById(id) {
         let conn;
         try {
             conn = await pool.getConnection();
+            
+            // ✅ CORRIGÉ: Joindre avec utilisateur
             const rows = await conn.query(`
                 SELECT 
                     e.id,
-                    e.nom,
-                    e.prenom,
+                    u.nom,                      -- ✅ De utilisateur
+                    u.prenom,                   -- ✅ De utilisateur
                     e.identifiant_csv AS identifiant,
                     e.date_naissance,
+                    u.email,                    -- ✅ AJOUTÉ
+                    u.telephone,                -- ✅ AJOUTÉ
                     CONCAT(n.numero, c.lettre) AS classe,
                     n.libelle AS niveau,
                     e.date_creation
                 FROM eleve e
+                INNER JOIN utilisateur u ON u.id = e.id_utilisateur  -- ✅ AJOUTER JOIN
                 LEFT JOIN inscription i ON i.id_eleve = e.id
                 LEFT JOIN classe c ON c.id = i.id_classe
                 LEFT JOIN niveau n ON n.id = c.id_niveau
@@ -74,6 +85,7 @@ export class Eleve {
     }
 
     /**
+     * ✅ CORRIGÉ: Chercher dans utilisateur au lieu de eleve
      * Chercher des élèves par nom/prénom
      */
     static async search(query) {
@@ -82,22 +94,26 @@ export class Eleve {
             conn = await pool.getConnection();
             const searchTerm = `%${query}%`;
             
+            // ✅ CORRIGÉ: Joindre avec utilisateur et chercher dans u.nom/u.prenom
             const data = await conn.query(`
                 SELECT 
                     e.id,
-                    e.nom,
-                    e.prenom,
+                    u.nom,                      -- ✅ De utilisateur
+                    u.prenom,                   -- ✅ De utilisateur
                     e.identifiant_csv AS identifiant,
                     e.date_naissance,
+                    u.email,
+                    u.telephone,
                     CONCAT(n.numero, c.lettre) AS classe,
                     n.libelle AS niveau
                 FROM eleve e
+                INNER JOIN utilisateur u ON u.id = e.id_utilisateur  -- ✅ AJOUTER JOIN
                 LEFT JOIN inscription i ON i.id_eleve = e.id
                 LEFT JOIN classe c ON c.id = i.id_classe
                 LEFT JOIN niveau n ON n.id = c.id_niveau
-                WHERE e.nom LIKE ? OR e.prenom LIKE ?
-                ORDER BY e.nom, e.prenom
-            `, [searchTerm, searchTerm]);
+                WHERE u.nom LIKE ? OR u.prenom LIKE ? OR e.identifiant_csv LIKE ?  -- ✅ Chercher dans utilisateur
+                ORDER BY u.nom, u.prenom
+            `, [searchTerm, searchTerm, searchTerm]);
             
             return data;
         } finally {
@@ -116,8 +132,10 @@ export class Eleve {
             const rows = await conn.query(`
                 SELECT 
                     e.id,
-                    e.nom,
-                    e.prenom,
+                    u.nom,
+                    u.prenom,
+                    u.email,
+                    u.telephone,
                     e.identifiant_csv AS identifiant,
                     e.date_naissance,
                     CONCAT(n.numero, c.lettre) AS classe,
@@ -125,6 +143,7 @@ export class Eleve {
                     u_ref.prenom AS prenom_referent,
                     u_ref.nom AS nom_referent
                 FROM eleve e
+                INNER JOIN utilisateur u ON u.id = e.id_utilisateur
                 LEFT JOIN inscription i ON i.id_eleve = e.id
                 LEFT JOIN classe c ON c.id = i.id_classe
                 LEFT JOIN niveau n ON n.id = c.id_niveau
@@ -194,30 +213,26 @@ export class Eleve {
     }
 
     /**
-     * ✅ CORRIGÉ: Créer un élève SEULEMENT
-     * 
-     * L'utilisateur est déjà créé par le controller avant d'appeler cette méthode.
-     * Cette méthode insère SEULEMENT dans la table 'eleve', pas dans 'utilisateur'.
-     * 
-     * Cela évite la DOUBLE CRÉATION d'utilisateur qui causait les conflits !
+     * ✅ CORRIGÉ: N'insérer QUE id_utilisateur et identifiant_csv
+     * Les colonnes nom/prenom n'existent PAS dans eleve !
+     * L'utilisateur est créé AVANT par le controller
      */
     static async create(data) {
-        const { nom, prenom, identifiant, id_utilisateur, date_naissance } = data;
+        const { identifiant, id_utilisateur, date_naissance } = data;
         
-        if (!nom || !prenom || !identifiant || !id_utilisateur) {
-            throw new Error('Champs requis: nom, prenom, identifiant, id_utilisateur');
+        if (!id_utilisateur || !identifiant) {
+            throw new Error('Champs requis: id_utilisateur, identifiant');
         }
         
         let conn;
         try {
             conn = await pool.getConnection();
             
-            // ✅ Insérer SEULEMENT dans la table 'eleve'
-            // L'utilisateur existe déjà dans la table 'utilisateur'
+            // ✅ CORRIGÉ: Insérer SEULEMENT dans les colonnes qui existent
             const result = await conn.query(`
-                INSERT INTO eleve (id_utilisateur, nom, prenom, identifiant_csv, date_naissance)
-                VALUES (?, ?, ?, ?, ?)
-            `, [id_utilisateur, nom, prenom, identifiant, date_naissance || null]);
+                INSERT INTO eleve (id_utilisateur, identifiant_csv, date_naissance, date_creation)
+                VALUES (?, ?, ?, NOW())
+            `, [id_utilisateur, identifiant, date_naissance || null]);
             
             console.log("✅ Élève créé avec succès (id=" + result.insertId + ")");
             return result.insertId;
@@ -234,16 +249,34 @@ export class Eleve {
      * Mettre à jour un élève
      */
     static async update(id, data) {
-        const { nom, prenom } = data;
+        const { date_naissance, classe } = data;
         
         let conn;
         try {
             conn = await pool.getConnection();
             
-            await conn.query(
-                'UPDATE eleve SET nom = ?, prenom = ? WHERE id = ?',
-                [nom || undefined, prenom || undefined, id]
-            );
+            // Mettre à jour eleve
+            if (date_naissance) {
+                await conn.query(
+                    'UPDATE eleve SET date_naissance = ? WHERE id = ?',
+                    [date_naissance, id]
+                );
+            }
+            
+            // Mettre à jour inscription si classe changée
+            if (classe) {
+                const classeId = await conn.query(
+                    'SELECT id FROM classe WHERE CONCAT(numero, lettre) = ?',
+                    [classe]
+                );
+                
+                if (classeId.length > 0) {
+                    await conn.query(
+                        'UPDATE inscription SET id_classe = ? WHERE id_eleve = ?',
+                        [classeId[0].id, id]
+                    );
+                }
+            }
             
             return await this.findById(id);
         } finally {
