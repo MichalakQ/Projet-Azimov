@@ -107,14 +107,12 @@ export class Eleve {
 
     /**
      * Récupérer les statistiques COMPLÈTES d'un élève
-     * ✅ CORRIGÉ: Inclut moyennes avec annee_scolaire, options, parents
      */
     static async getStatistiques(id) {
         let conn;
         try {
             conn = await pool.getConnection();
             
-            // ✅ Élève de base + RÉFÉRENT (enseignant)
             const rows = await conn.query(`
                 SELECT 
                     e.id,
@@ -141,7 +139,6 @@ export class Eleve {
             
             const eleve = rows[0];
             
-            // ✅ MOYENNES avec annee_scolaire
             const moyennes = await conn.query(`
                 SELECT 
                     m.id,
@@ -157,7 +154,6 @@ export class Eleve {
                 ORDER BY a.libelle DESC, m.semestre DESC
             `, [id]);
             
-            // ✅ OPTIONS SCOLAIRES
             const options = await conn.query(`
                 SELECT DISTINCT 
                     o.id,
@@ -169,7 +165,6 @@ export class Eleve {
                 ORDER BY o.categorie, o.libelle
             `, [id]);
             
-            // ✅ PARENTS
             const parents = await conn.query(`
                 SELECT DISTINCT 
                     u.nom,
@@ -184,7 +179,6 @@ export class Eleve {
                 ORDER BY ep.lien
             `, [id]);
             
-            // ✅ RETOURNER TOUT AVEC CONVERTION BigInt → Number
             return {
                 ...eleve,
                 moyennes: moyennes.map(m => ({
@@ -200,34 +194,37 @@ export class Eleve {
     }
 
     /**
-     * Créer un élève
+     * ✅ CORRIGÉ: Créer un élève SEULEMENT
+     * 
+     * L'utilisateur est déjà créé par le controller avant d'appeler cette méthode.
+     * Cette méthode insère SEULEMENT dans la table 'eleve', pas dans 'utilisateur'.
+     * 
+     * Cela évite la DOUBLE CRÉATION d'utilisateur qui causait les conflits !
      */
     static async create(data) {
-        const { nom, prenom, identifiant } = data;
+        const { nom, prenom, identifiant, id_utilisateur, date_naissance } = data;
         
-        if (!nom || !prenom || !identifiant) {
-            throw new Error('Champs requis: nom, prenom, identifiant');
+        if (!nom || !prenom || !identifiant || !id_utilisateur) {
+            throw new Error('Champs requis: nom, prenom, identifiant, id_utilisateur');
         }
         
         let conn;
         try {
             conn = await pool.getConnection();
             
-            // Créer utilisateur
-            const userResult = await conn.query(`
-                INSERT INTO utilisateur (identifiant, mot_de_passe, nom, prenom, email, id_role, actif)
-                VALUES (?, ?, ?, ?, ?, 4, 1)
-            `, [identifiant, 'hashed_password', nom, prenom, `${identifiant}@asimov.edu`]);
-            
-            const userId = userResult.insertId;
-            
-            // Créer élève
+            // ✅ Insérer SEULEMENT dans la table 'eleve'
+            // L'utilisateur existe déjà dans la table 'utilisateur'
             const result = await conn.query(`
-                INSERT INTO eleve (id_utilisateur, nom, prenom, identifiant_csv)
-                VALUES (?, ?, ?, ?)
-            `, [userId, nom, prenom, identifiant]);
+                INSERT INTO eleve (id_utilisateur, nom, prenom, identifiant_csv, date_naissance)
+                VALUES (?, ?, ?, ?, ?)
+            `, [id_utilisateur, nom, prenom, identifiant, date_naissance || null]);
             
+            console.log("✅ Élève créé avec succès (id=" + result.insertId + ")");
             return result.insertId;
+            
+        } catch (error) {
+            console.error("❌ Erreur création élève:", error.message);
+            throw error;
         } finally {
             if (conn) conn.release();
         }

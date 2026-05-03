@@ -146,6 +146,8 @@ export default {
     /**
      * POST /api/eleves
      * Créer un nouvel élève
+     * 
+     * ✅ CORRIGÉ: Envoie nom et prenom à Utilisateur.create()
      */
     createEleve: async (req, res) => {
         console.log("POST /api/eleves : createEleve");
@@ -163,6 +165,8 @@ export default {
                 // Créer l'utilisateur d'abord
                 const userId = await Utilisateur.create({
                     identifiant,
+                    nom: nom.toUpperCase(),           // ✅ AJOUTÉ - nom en majuscules
+                    prenom,                           // ✅ AJOUTÉ - prénom
                     mot_de_passe: 'changermotdepasse',
                     email: `${identifiant}@eleve.asimov.edu`,
                     id_role: 4  // Rôle élève
