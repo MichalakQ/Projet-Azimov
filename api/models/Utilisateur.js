@@ -85,20 +85,22 @@ export class Utilisateur {
             let query = `
                 SELECT u.id, u.identifiant, u.email, u.nom, u.prenom, u.telephone, r.libelle AS role, u.actif
                 FROM utilisateur u
-                JOIN role r ON r.id = u.id_role
-                WHERE 1=1
+                JOIN role r ON r.id = u.id_role;
             `;
             const params = [];
-            
+            let cmd='WHERE'; //A la place de WHERE 1=1
             if (filters.actif !== undefined) {
-                query += ` AND u.actif = ?`;
+                query += ` WHERE u.actif = ?`;
+                cmd='AND';
                 params.push(filters.actif);
             }
             
-            if (filters.role) {
-                query += ` AND r.libelle = ?`;
+                if (filters.role) {
+                query += ` ${cmd} r.libelle = ?`;
                 params.push(filters.role);
             }
+    
+
             
             query += ` ORDER BY u.nom, u.prenom`;
             

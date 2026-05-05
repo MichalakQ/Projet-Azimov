@@ -119,7 +119,7 @@ export const login = async (req, res) => {
         
     } catch (error) {
         console.error('❌ Erreur login:', error.message);
-        return res.status(500).json({
+        return res.status(400).json({
             success: false,
             error: 'Erreur serveur',
             message: error.message
@@ -132,7 +132,11 @@ export const login = async (req, res) => {
 // ============================================================
 // Compare CURRENT_DATE avec la date_mdp
 // Retourne le nombre de jours d'écart
-
+/**
+ * fais la différente entre currentdate et date_mdp
+ * @param {*} date_mdp (format AAAA-MM-DD)
+ * @returns différence ou 9999
+ */
 function calculerDifferenceJours(date_mdp) {
     if (!date_mdp) {
         console.log("⚠️ date_mdp est NULL");
