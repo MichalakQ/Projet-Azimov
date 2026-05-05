@@ -4,7 +4,7 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { testConnection } from './config/database.js';
-import { verifyToken, requireRole } from './middlewares/auth.js';
+//import {    requireRole } from './middlewares/auth.js';
 
 import CtrlAuth       from './controllers/auth.controller.js';
 import CtrlEleve      from './controllers/eleve.controller.js';
@@ -32,62 +32,62 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Auth (publiques)
 app.post('/api/auth/login',  CtrlAuth.login);
-app.get('/api/auth/profil',  verifyToken, CtrlAuth.profil);
+app.get('/api/auth/profil',     CtrlAuth.profil);
 
 // Élèves
-app.get('/api/eleves',                  verifyToken, CtrlEleve.readEleves);
-app.get('/api/eleves/search',           verifyToken, CtrlEleve.searchEleves);
-app.get('/api/eleves/:id',              verifyToken, CtrlEleve.readEleveId);
-app.get('/api/eleves/:id/statistiques', verifyToken, CtrlEleve.readStatistiques);
-app.post('/api/eleves',                 verifyToken, requireRole('secretariat', 'proviseur'), CtrlEleve.createEleve);
-app.put('/api/eleves/:id',              verifyToken, requireRole('secretariat', 'proviseur'), CtrlEleve.updateEleve);
-app.delete('/api/eleves/:id',           verifyToken, requireRole('proviseur'), CtrlEleve.deleteEleve);
+app.get('/api/eleves', CtrlEleve.readEleves);
+app.get('/api/eleves/search', CtrlEleve.searchEleves);
+app.get('/api/eleves/:id', CtrlEleve.readEleveId);
+app.get('/api/eleves/:id/statistiques', CtrlEleve.readStatistiques);
+app.post('/api/eleves', CtrlEleve.createEleve);
+app.put('/api/eleves/:id', CtrlEleve.updateEleve);
+app.delete('/api/eleves/:id', CtrlEleve.deleteEleve);
 
 // Enseignants
-app.get('/api/enseignants',             verifyToken, CtrlEnseignant.readAll);
-app.get('/api/enseignants/:id',         verifyToken, CtrlEnseignant.readById);
-app.get('/api/enseignants/:id/eleves',  verifyToken, CtrlEnseignant.readEleves);
+app.get('/api/enseignants', CtrlEnseignant.readAll);
+app.get('/api/enseignants/:id', CtrlEnseignant.readById);
+app.get('/api/enseignants/:id/eleves', CtrlEnseignant.readEleves);
 
 // Classes
-app.get('/api/classes',                 verifyToken, CtrlClasse.readAll);
-app.get('/api/classes/niveaux',         verifyToken, CtrlClasse.readNiveaux);
-app.get('/api/classes/:id/eleves',      verifyToken, CtrlClasse.readEleves);
+app.get('/api/classes', CtrlClasse.readAll);
+app.get('/api/classes/niveaux',          CtrlClasse.readNiveaux);
+app.get('/api/classes/:id/eleves',         CtrlClasse.readEleves);
 
 // Moyennes
-app.get('/api/moyennes/eleve/:id',      verifyToken, CtrlMoyenne.readByEleve);
-app.get('/api/moyennes/niveaux',        verifyToken, CtrlMoyenne.readByNiveau);
-app.get('/api/moyennes/en-attente',     verifyToken, requireRole('proviseur'), CtrlMoyenne.readEnAttente);
-app.post('/api/moyennes',               verifyToken, requireRole('secretariat'), CtrlMoyenne.createMoyenne);
-app.put('/api/moyennes/:id/valider',    verifyToken, requireRole('proviseur'), CtrlMoyenne.validerMoyenne);
-app.put('/api/moyennes/:id/corriger',   verifyToken, requireRole('proviseur'), CtrlMoyenne.corrigerMoyenne);
+app.get('/api/moyennes/eleve/:id',CtrlMoyenne.readByEleve);
+app.get('/api/moyennes/niveaux',CtrlMoyenne.readByNiveau);
+app.get('/api/moyennes/en-attente',CtrlMoyenne.readEnAttente);
+app.post('/api/moyennes',CtrlMoyenne.createMoyenne);
+app.put('/api/moyennes/:id/valider', CtrlMoyenne.validerMoyenne);
+app.put('/api/moyennes/:id/corriger', CtrlMoyenne.corrigerMoyenne);
 
 // Référents
-app.get('/api/referents',               verifyToken, CtrlReferent.readAll);
-app.get('/api/referents/eleve/:id',     verifyToken, CtrlReferent.readByEleve);
-app.post('/api/referents',              verifyToken, requireRole('secretariat', 'proviseur'), CtrlReferent.affecter);
-app.post('/api/referents/round-robin',  verifyToken, requireRole('secretariat', 'proviseur'), CtrlReferent.roundRobin);
+app.get('/api/referents',CtrlReferent.readAll);
+app.get('/api/referents/eleve/:id',CtrlReferent.readByEleve);
+app.post('/api/referents', CtrlReferent.affecter);
+app.post('/api/referents/round-robin', CtrlReferent.roundRobin);
 
 // Stages
-app.get('/api/stages/recherches/eleve/:id', verifyToken, CtrlStage.readRecherches);
-app.get('/api/stages/recherches/suivi',     verifyToken, requireRole('enseignant', 'proviseur', 'secretariat'), CtrlStage.readSuivi);
-app.post('/api/stages/recherches',          verifyToken, CtrlStage.createRecherche);
-app.get('/api/stages/conventions',          verifyToken, CtrlStage.readConventions);
-app.get('/api/stages/entreprises',          verifyToken, CtrlStage.readEntreprises);
+app.get('/api/stages/recherches/eleve/:id',    CtrlStage.readRecherches);
+app.get('/api/stages/recherches/suivi',         CtrlStage.readSuivi);
+app.post('/api/stages/recherches',             CtrlStage.createRecherche);
+app.get('/api/stages/conventions',             CtrlStage.readConventions);
+app.get('/api/stages/entreprises',             CtrlStage.readEntreprises);
 
 // Projets
-app.get('/api/projets',                 verifyToken, CtrlProjet.readAll);
-app.get('/api/projets/:id',             verifyToken, CtrlProjet.readById);
-app.post('/api/projets',                verifyToken, CtrlProjet.createProjet);
-app.put('/api/projets/:id/valider',     verifyToken, requireRole('proviseur'), CtrlProjet.validerProjet);
+app.get('/api/projets',                    CtrlProjet.readAll);
+app.get('/api/projets/:id',                CtrlProjet.readById);
+app.post('/api/projets',                   CtrlProjet.createProjet);
+app.put('/api/projets/:id/valider',        CtrlProjet.validerProjet);
 
 // Options
-app.get('/api/options',                 verifyToken, CtrlOption.readAll);
-app.get('/api/options/eleve/:id',       verifyToken, CtrlOption.readByEleve);
+app.get('/api/options',                    CtrlOption.readAll);
+app.get('/api/options/eleve/:id',          CtrlOption.readByEleve);
 
 // Parents
-app.get('/api/parents',                 verifyToken, CtrlParent.readAll);
-app.get('/api/parents/eleve/:id',       verifyToken, CtrlParent.readByEleve);
-app.get('/api/parents/publipostage',    verifyToken, requireRole('secretariat', 'proviseur'), CtrlParent.readPublipostage);
+app.get('/api/parents',                    CtrlParent.readAll);
+app.get('/api/parents/eleve/:id',          CtrlParent.readByEleve);
+app.get('/api/parents/publipostage',       CtrlParent.readPublipostage);
 
 // Documentation racine
 app.get('/api', (req, res) => {

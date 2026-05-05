@@ -1,47 +1,86 @@
-import pool from '../config/database.js';
+import { Parent } from '../models/Parent.js';
 
 export default {
+
+    /**
+     * GET /api/parents
+     * Récupérer tous les parents
+     */
     readAll: async (req, res) => {
         console.log("GET /api/parents");
         try {
-            let conn;
-            try {
-                conn = await pool.getConnection();
-                const data = await conn.query('SELECT * FROM parent ORDER BY nom');
-                res.json({ success: true, data, count: data.length });
-            } finally { if (conn) conn.release(); }
-        } catch (error) { res.status(500).json({ success: false, error: 'Erreur', message: error.message }); }
+            // Utiliser le modèle
+            const data = await Parent.findAll();
+
+            res.json({
+                success: true,
+                data,
+                count: data.length
+            });
+
+        } catch (error) {
+            console.error('Erreur lecture parents:', error.message);
+            res.status(500).json({
+                success: false,
+                error: 'Erreur',
+                message: error.message
+            });
+        }
     },
 
+    /**
+     * GET /api/parents/eleve/:id
+     * Récupérer les parents d'un élève
+     */
     readByEleve: async (req, res) => {
         console.log("GET /api/parents/eleve/:id");
         try {
             const id = parseInt(req.params.id);
-            let conn;
-            try {
-                conn = await pool.getConnection();
-                const data = await conn.query(`
-                    SELECT p.*, ep.lien FROM parent p
-                    JOIN eleve_parent ep ON ep.id_parent = p.id WHERE ep.id_eleve = ?
-                `, [id]);
-                res.json({ success: true, data, count: data.length });
-            } finally { if (conn) conn.release(); }
-        } catch (error) { res.status(500).json({ success: false, error: 'Erreur', message: error.message }); }
+
+            // Utiliser le modèle
+            const data = await Parent.getByEleve(id);
+
+            res.json({
+                success: true,
+                data,
+                count: data.length
+            });
+
+        } catch (error) {
+            console.error('Erreur lecture parents élève:', error.message);
+            res.status(500).json({
+                success: false,
+                error: 'Erreur',
+                message: error.message
+            });
+        }
     },
 
+    /**
+     * GET /api/parents/publipostage?annee_scolaire=2025-2026
+     * Récupérer les données pour les courriers aux parents
+     */
     readPublipostage: async (req, res) => {
         console.log("GET /api/parents/publipostage");
         try {
-            let conn;
-            try {
-                conn = await pool.getConnection();
-                const annee = req.query.annee_scolaire || '2025-2026';
-                const data = await conn.query(
-                    'SELECT * FROM v_publipostage_parents WHERE annee_scolaire = ? ORDER BY nom_parent',
-                    [annee]
-                );
-                res.json({ success: true, data, count: data.length });
-            } finally { if (conn) conn.release(); }
-        } catch (error) { res.status(500).json({ success: false, error: 'Erreur', message: error.message }); }
+            const annee = req.query.annee_scolaire || '2025-2026';
+
+            // Utiliser le modèle
+            const data = await Parent.getPublipostage(annee);
+
+            res.json({
+                success: true,
+                data,
+                count: data.length
+            });
+
+        } catch (error) {
+            console.error('Erreur publipostage:', error.message);
+            res.status(500).json({
+                success: false,
+                error: 'Erreur',
+                message: error.message
+            });
+        }
     }
 };

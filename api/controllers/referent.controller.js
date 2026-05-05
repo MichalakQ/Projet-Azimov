@@ -1,65 +1,145 @@
-import pool from '../config/database.js';
+import { Referent } from '../models/Referent.js';
 
 export default {
+
+    /**
+     * GET /api/referents?annee_scolaire=2025-2026
+     * Récupérer tous les référents
+     */
     readAll: async (req, res) => {
         console.log("GET /api/referents");
         try {
-            let conn;
-            try {
-                conn = await pool.getConnection();
-                const annee = req.query.annee_scolaire || '2025-2026';
-                const data = await conn.query('SELECT * FROM v_eleves_referent WHERE annee_scolaire = ?', [annee]);
-                res.json({ success: true, data, count: data.length });
-            } finally { if (conn) conn.release(); }
-        } catch (error) { res.status(500).json({ success: false, error: 'Erreur', message: error.message }); }
+            const annee = req.query.annee_scolaire || '2025-2026';
+
+            // Utiliser le modèle
+            const data = await Referent.findAll(annee);
+
+            res.json({
+                success: true,
+                data,
+                count: data.length
+            });
+
+        } catch (error) {
+            console.error('Erreur lecture referents:', error.message);
+            res.status(500).json({
+                success: false,
+                error: 'Erreur',
+                message: error.message
+            });
+        }
     },
 
+    /**
+     * GET /api/referents/eleve/:id?annee_scolaire=2025-2026
+     * Récupérer le référent d'un élève
+     */
     readByEleve: async (req, res) => {
         console.log("GET /api/referents/eleve/:id");
         try {
             const id = parseInt(req.params.id);
-            let conn;
-            try {
-                conn = await pool.getConnection();
-                const annee = req.query.annee_scolaire || '2025-2026';
-                const rows = await conn.query(`
-                    SELECT r.*, ens.nom AS nom_enseignant, ens.prenom AS prenom_enseignant
-                    FROM referent r JOIN enseignant ens ON ens.id = r.id_enseignant
-                    WHERE r.id_eleve = ? AND r.annee_scolaire = ?
-                `, [id, annee]);
-                if (rows.length === 0) return res.status(404).json({ success: false, error: 'Aucun référent trouvé' });
-                res.json({ success: true, data: rows[0] });
-            } finally { if (conn) conn.release(); }
-        } catch (error) { res.status(500).json({ success: false, error: 'Erreur', message: error.message }); }
+            const annee = req.query.annee_scolaire || '2025-2026';
+
+            // Utiliser le modèle
+            const referent = await Referent.getByEleve(id, annee);
+            if (!referent) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Aucun référent trouvé'
+                });
+            }
+
+            res.json({
+                success: true,
+                data: referent
+            });
+
+        } catch (error) {
+            console.error('Erreur lecture referent:', error.message);
+            res.status(500).json({
+                success: false,
+                error: 'Erreur',
+                message: error.message
+            });
+        }
     },
 
+    /**
+     * POST /api/referents
+     * Affecter un référent à un élève
+     */
     affecter: async (req, res) => {
         console.log("POST /api/referents");
         try {
             const { id_enseignant, id_eleve, annee_scolaire } = req.body;
-            let conn;
+
+            if (!id_enseignant || !id_eleve || !annee_scolaire) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'id_enseignant, id_eleve et annee_scolaire requis'
+                });
+            }
+
             try {
-                conn = await pool.getConnection();
-                await conn.query(`
-                    INSERT INTO referent (id_enseignant, id_eleve, annee_scolaire) VALUES (?, ?, ?)
-                    ON DUPLICATE KEY UPDATE id_enseignant = ?
-                `, [id_enseignant, id_eleve, annee_scolaire, id_enseignant]);
-                res.status(201).json({ success: true, message: 'Référent affecté' });
-            } finally { if (conn) conn.release(); }
-        } catch (error) { res.status(500).json({ success: false, error: 'Erreur', message: error.message }); }
+                // Utiliser le modèle
+                await Referent.assign(id_enseignant, id_eleve, annee_scolaire);
+
+                res.status(201).json({
+                    success: true,
+                    message: 'Référent affecté'
+                });
+
+            } catch (error) {
+                throw error;
+            }
+
+        } catch (error) {
+            console.error('Erreur affectation:', error.message);
+            res.status(500).json({
+                success: false,
+                error: 'Erreur',
+                message: error.message
+            });
+        }
     },
 
+    /**
+     * POST /api/referents/round-robin
+     * Affectation automatique en round-robin
+     */
     roundRobin: async (req, res) => {
         console.log("POST /api/referents/round-robin");
         try {
             const { annee_scolaire } = req.body;
-            if (!annee_scolaire) return res.status(400).json({ success: false, error: 'annee_scolaire requise' });
-            let conn;
+
+            if (!annee_scolaire) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'annee_scolaire requise'
+                });
+            }
+
             try {
-                conn = await pool.getConnection();
-                const result = await conn.query('CALL sp_affecter_referents_round_robin(?)', [annee_scolaire]);
-                res.json({ success: true, data: result, message: 'Affectation round-robin terminée' });
-            } finally { if (conn) conn.release(); }
-        } catch (error) { res.status(500).json({ success: false, error: 'Erreur', message: error.message }); }
+                // Utiliser le modèle
+                const result = await Referent.roundRobin(annee_scolaire);
+
+                res.json({
+                    success: true,
+                    data: result,
+                    message: 'Affectation round-robin terminée'
+                });
+
+            } catch (error) {
+                throw error;
+            }
+
+        } catch (error) {
+            console.error('Erreur round-robin:', error.message);
+            res.status(500).json({
+                success: false,
+                error: 'Erreur',
+                message: error.message
+            });
+        }
     }
 };

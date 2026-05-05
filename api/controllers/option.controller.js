@@ -1,33 +1,59 @@
-import pool from '../config/database.js';
+import { Option } from '../models/Option.js';
 
 export default {
+
+    /**
+     * GET /api/options
+     * Récupérer toutes les options
+     */
     readAll: async (req, res) => {
         console.log("GET /api/options");
         try {
-            let conn;
-            try {
-                conn = await pool.getConnection();
-                const data = await conn.query('SELECT * FROM option_scolaire ORDER BY categorie, libelle');
-                res.json({ success: true, data, count: data.length });
-            } finally { if (conn) conn.release(); }
-        } catch (error) { res.status(500).json({ success: false, error: 'Erreur', message: error.message }); }
+            // Utiliser le modèle
+            const data = await Option.findAll();
+
+            res.json({
+                success: true,
+                data,
+                count: data.length
+            });
+
+        } catch (error) {
+            console.error('Erreur lecture options:', error.message);
+            res.status(500).json({
+                success: false,
+                error: 'Erreur',
+                message: error.message
+            });
+        }
     },
 
+    /**
+     * GET /api/options/eleve/:id?annee_scolaire=2025-2026
+     * Récupérer les options d'un élève
+     */
     readByEleve: async (req, res) => {
         console.log("GET /api/options/eleve/:id");
         try {
             const id = parseInt(req.params.id);
             const annee = req.query.annee_scolaire || '2025-2026';
-            let conn;
-            try {
-                conn = await pool.getConnection();
-                const data = await conn.query(`
-                    SELECT o.*, eo.annee_scolaire FROM eleve_option eo
-                    JOIN option_scolaire o ON o.id = eo.id_option
-                    WHERE eo.id_eleve = ? AND eo.annee_scolaire = ?
-                `, [id, annee]);
-                res.json({ success: true, data, count: data.length });
-            } finally { if (conn) conn.release(); }
-        } catch (error) { res.status(500).json({ success: false, error: 'Erreur', message: error.message }); }
+
+            // Utiliser le modèle
+            const data = await Option.getByEleve(id, annee);
+
+            res.json({
+                success: true,
+                data,
+                count: data.length
+            });
+
+        } catch (error) {
+            console.error('Erreur lecture options élève:', error.message);
+            res.status(500).json({
+                success: false,
+                error: 'Erreur',
+                message: error.message
+            });
+        }
     }
 };

@@ -19,7 +19,9 @@ public class MainFrame extends JFrame {
     private String activePanel = "dashboard";
 
     public MainFrame() {
-        setTitle("Asim'UT — " + ApiService.getInstance().getCurrentUser());
+        var user = ApiService.getInstance().getCurrentUser();
+        String userStr = user != null ? user.getIdentifiant() : "Utilisateur";
+        setTitle("Asim'UT — " + userStr);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setSize(1200, 750);
         setMinimumSize(new Dimension(900, 600));
@@ -50,7 +52,8 @@ public class MainFrame extends JFrame {
         sideHeader.add(appName);
 
         var user = ApiService.getInstance().getCurrentUser();
-        JLabel userName = new JLabel(user.getIdentifiant() + " · " + user.getRole());
+        String userDisplay = user != null ? (user.getIdentifiant() + " · " + user.getRole()) : "Utilisateur";
+        JLabel userName = new JLabel(userDisplay);
         userName.setFont(new Font("SansSerif", Font.PLAIN, 11));
         userName.setForeground(new Color(125, 129, 154));
         sideHeader.add(userName);
@@ -84,13 +87,62 @@ public class MainFrame extends JFrame {
 
         // ===== CONTENT PANELS =====
         contentPanel.setBackground(new Color(12, 14, 20));
-        contentPanel.add(new DashboardPanel(), "dashboard");
-        contentPanel.add(new ElevesPanel(), "eleves");
-        contentPanel.add(new EnseignantsPanel(), "enseignants");
-        contentPanel.add(new ClassesPanel(), "classes");
-        contentPanel.add(new MoyennesPanel(), "moyennes");
-        contentPanel.add(new StagesPanel(), "stages");
-        contentPanel.add(new ProjetsPanel(), "projets");
+
+        try {
+            contentPanel.add(new DashboardPanel(), "dashboard");
+            System.out.println("✓ DashboardPanel chargé");
+        } catch (Exception e) {
+            System.err.println("✗ Erreur DashboardPanel: " + e.getMessage());
+            contentPanel.add(createErrorPanel("Erreur DashboardPanel"), "dashboard");
+        }
+
+        try {
+            contentPanel.add(new ElevesPanel(), "eleves");
+            System.out.println("✓ ElevesPanel chargé");
+        } catch (Exception e) {
+            System.err.println("✗ Erreur ElevesPanel: " + e.getMessage());
+            contentPanel.add(createErrorPanel("Erreur ElevesPanel"), "eleves");
+        }
+
+        try {
+            contentPanel.add(new EnseignantsPanel(), "enseignants");
+            System.out.println("✓ EnseignantsPanel chargé");
+        } catch (Exception e) {
+            System.err.println("✗ Erreur EnseignantsPanel: " + e.getMessage());
+            contentPanel.add(createErrorPanel("Erreur EnseignantsPanel"), "enseignants");
+        }
+
+        try {
+            contentPanel.add(new ClassesPanel(), "classes");
+            System.out.println("✓ ClassesPanel chargé");
+        } catch (Exception e) {
+            System.err.println("✗ Erreur ClassesPanel: " + e.getMessage());
+            contentPanel.add(createErrorPanel("Erreur ClassesPanel"), "classes");
+        }
+
+        try {
+            contentPanel.add(new MoyennesPanel(), "moyennes");
+            System.out.println("✓ MoyennesPanel chargé");
+        } catch (Exception e) {
+            System.err.println("✗ Erreur MoyennesPanel: " + e.getMessage());
+            contentPanel.add(createErrorPanel("Erreur MoyennesPanel"), "moyennes");
+        }
+
+        try {
+            contentPanel.add(new StagesPanel(), "stages");
+            System.out.println("✓ StagesPanel chargé");
+        } catch (Exception e) {
+            System.err.println("✗ Erreur StagesPanel: " + e.getMessage());
+            contentPanel.add(createErrorPanel("Erreur StagesPanel"), "stages");
+        }
+
+        try {
+            contentPanel.add(new ProjetsPanel(), "projets");
+            System.out.println("✓ ProjetsPanel chargé");
+        } catch (Exception e) {
+            System.err.println("✗ Erreur ProjetsPanel: " + e.getMessage());
+            contentPanel.add(createErrorPanel("Erreur ProjetsPanel"), "projets");
+        }
 
         root.add(sidebar, BorderLayout.WEST);
         root.add(contentPanel, BorderLayout.CENTER);
@@ -98,6 +150,18 @@ public class MainFrame extends JFrame {
 
         // Sélectionner le dashboard par défaut
         selectPanel("dashboard");
+
+        System.out.println("✓ MainFrame initialisée avec succès");
+    }
+
+    private JPanel createErrorPanel(String message) {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setOpaque(false);
+        JLabel lbl = new JLabel(message);
+        lbl.setForeground(new Color(239, 68, 68));
+        lbl.setFont(new Font("SansSerif", Font.BOLD, 14));
+        panel.add(lbl, BorderLayout.CENTER);
+        return panel;
     }
 
     private void addNavItem(JPanel sidebar, String key, String label) {
@@ -160,9 +224,15 @@ public class MainFrame extends JFrame {
         // Rafraîchir le panneau affiché
         for (Component c : contentPanel.getComponents()) {
             if (c instanceof Refreshable r && c.isVisible()) {
-                r.refresh();
+                try {
+                    r.refresh();
+                } catch (Exception e) {
+                    System.err.println("Erreur refresh " + key + ": " + e.getMessage());
+                }
             }
         }
+
+        System.out.println("✓ Panel sélectionné: " + key);
     }
 
     private JSeparator createSeparator() {
